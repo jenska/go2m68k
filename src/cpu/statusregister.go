@@ -63,14 +63,28 @@ func (sr *StatusRegister) S() bool {
 }
 
 func (sr StatusRegister) String() string {
-	result := []byte {'-','-','-','-','-','-','-'}
-	if sr.T { result[0] = 'T' }
-	if sr.s { result[1] = 'S' }
-	if sr.X { result[2] = 'X' }
-	if sr.N { result[3] = 'N' }
-	if sr.Z { result[4] = 'Z' }
-	if sr.V { result[5] = 'V' }
-	if sr.C { result[6] = 'C' }
+	result := []byte{'-', '-', '-', '-', '-', '-', '-'}
+	if sr.T {
+		result[0] = 'T'
+	}
+	if sr.s {
+		result[1] = 'S'
+	}
+	if sr.X {
+		result[2] = 'X'
+	}
+	if sr.N {
+		result[3] = 'N'
+	}
+	if sr.Z {
+		result[4] = 'Z'
+	}
+	if sr.V {
+		result[5] = 'V'
+	}
+	if sr.C {
+		result[6] = 'C'
+	}
 
-	return string(result) + fmt.Sprintf("%04b", sr.Interrupts & 0x07)
+	return fmt.Sprintf("%s-b%04b", result, sr.Interrupts&0x07)
 }
