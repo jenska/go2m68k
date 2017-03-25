@@ -1,6 +1,8 @@
 package cpu
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type StatusRegister struct {
 	C, V, Z, N, X, s, T bool
@@ -47,7 +49,7 @@ func (sr *StatusRegister) Set(value uint16) {
 	sr.X = (value & 16) != 0
 	sr.T = (value & 0x8000) != 0
 	sr.Interrupts = (value & 0x0700) >> 8
-	sr.cpu.SetSupervisorMode((value & 0x2000) != 0)
+	sr.setS((value & 0x2000) != 0)
 }
 
 func (sr *StatusRegister) GetCCR() uint16 {
@@ -60,6 +62,20 @@ func (sr *StatusRegister) SetCCR(value uint16) {
 
 func (sr *StatusRegister) S() bool {
 	return sr.s
+}
+
+func (sr *StatusRegister) setS(value bool) {
+	if sr.s {
+		sr.cpu.SSP = sr.cpu.A[7]
+	} else {
+		sr.cpu.USP = sr.cpu.A[7]
+	}
+	sr.s = value
+	if sr.s {
+		sr.cpu.A[7] = sr.cpu.SSP
+	} else {
+		sr.cpu.A[7] = sr.cpu.USP
+	}
 }
 
 func (sr StatusRegister) String() string {
