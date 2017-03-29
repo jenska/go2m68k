@@ -49,7 +49,7 @@ func (sr *StatusRegister) Set(value uint16) {
 	sr.X = (value & 16) != 0
 	sr.T = (value & 0x8000) != 0
 	sr.Interrupts = (value & 0x0700) >> 8
-	sr.setS((value & 0x2000) != 0)
+	sr.SetS((value & 0x2000) != 0)
 }
 
 func (sr *StatusRegister) GetCCR() uint16 {
@@ -64,7 +64,7 @@ func (sr *StatusRegister) S() bool {
 	return sr.s
 }
 
-func (sr *StatusRegister) setS(value bool) {
+func (sr *StatusRegister) SetS(value bool) {
 	if sr.s {
 		sr.cpu.SSP = sr.cpu.A[7]
 	} else {
@@ -102,5 +102,5 @@ func (sr StatusRegister) String() string {
 		result[6] = 'C'
 	}
 
-	return fmt.Sprintf("%s-b%04b", result, sr.Interrupts&0x07)
+	return fmt.Sprintf("%s-b%03b", result, sr.Interrupts&0x07)
 }
