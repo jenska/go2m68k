@@ -12,7 +12,10 @@ var Info = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 var Warning = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
 var Error = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
-type Instruction func(cpu *M68k)
+type Instruction func()
+type InstructionFactory interface {
+	Instruction(cpu *M68k, opcode uint16) Instruction
+}
 
 type M68k struct {
 	A        [8]uint32
