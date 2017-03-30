@@ -6,12 +6,13 @@ type Operand struct {
 	Msb         uint32
 	Mask        uint32
 	Ext         string
+	eaVecOffset int
 	formatter   string
 }
 
-var Byte = &Operand{1, 2, 0x80, 0xff, ".b", "%02x"}
-var Word = &Operand{2, 2, 0x8000, 0xffff, ".w", "%04x"}
-var Long = &Operand{4, 4, 0x80000000, 0xffffffff, ".l", "%08x"}
+var Byte = &Operand{1, 2, 0x80, 0xff, ".b", 0,"%02x"}
+var Word = &Operand{2, 2, 0x8000, 0xffff, ".w", 64,"%04x"}
+var Long = &Operand{4, 4, 0x80000000, 0xffffffff, ".l", 128,"%08x"}
 
 func (o *Operand) isNegative(value uint32) bool {
 	return (o.Msb & value) != 0
@@ -33,12 +34,46 @@ func (o *Operand) get(value uint32) uint32 {
 	return value & o.Mask
 }
 
+
+
 type EA interface {
-	init(cpu *M68k, o *Operand, param int)
-	get() uint32
-	set(value uint32)
+	compute() Modifier
 	timing() int
-	computedAddress() uint32
+}
+
+type Modifier interface{
+	read() uint32
+	write(value uint32)
+}
+
+// Helper for read and write of precomputed addresses
+type addressModifier struct {
+	cpu *M68k
+	o *Operand
+	address uint32
+}
+func (a *addressModifier) read() uint32       { return a.cpu.read(a.o, a.address) }
+func (a *addressModifier) write(value uint32) { a.cpu.write(a.o, a.address, value) }
+
+
+func NewEAVectors(cpu *M68k) []EA {
+	eaVec := make([]EA, 3*(1<<6) )
+	for _, operand := range []*Operand{Byte,Word,Long} {
+		for i := 0; i<8; i++ {
+			eaVec[i    + operand.eaVecOffset] = &EADataRegister{cpu,operand,i}
+			eaVec[i+8  + operand.eaVecOffset] = &EAAddressRegister{cpu, operand, i}
+			eaVec[i+16 + operand.eaVecOffset] = &EAAddressRegisterIndirect{&addressModifier{cpu, operand, 0}, i}
+			eaVec[i+24 + operand.eaVecOffset] = &EAAddressRegisterPostInc{&addressModifier{cpu,operand,0}, i}
+			eaVec[i+32 + operand.eaVecOffset] = &EAAddressRegisterPreDec{&addressModifier{cpu,operand,0}, i}
+			eaVec[i+40 + operand.eaVecOffset] = &EAAddressRegisterWithDisplacement{&addressModifier{cpu,operand,0}, i}
+			eaVec[i+48 + operand.eaVecOffset] = &EAAddressRegisterWithIndex{&addressModifier{cpu,operand,0},i}
+		}
+		eaVec[56 + operand.eaVecOffset] = &EAAbsoluteWord{&addressModifier{cpu,operand,0},0}
+		eaVec[57 + operand.eaVecOffset] = &EAAbsoluteLong{&addressModifier{cpu,operand,0},0}
+		eaVec[58 + operand.eaVecOffset] = &EAPCWithDisplacement{&addressModifier{cpu,operand,0}, 0}
+		eaVec[58 + operand.eaVecOffset] = &EAPCWithIndex{&addressModifier{cpu,operand,0}, 0}
+	}
+	return  eaVec
 }
 
 // 0 Dx
@@ -47,38 +82,23 @@ type EADataRegister struct {
 	o        *Operand
 	register int
 }
-
-func (ea *EADataRegister) init(cpu *M68k, o *Operand, register int) {
-	ea.cpu, ea.o, ea.register = cpu, o, register
-}
-func (ea *EADataRegister) get() uint32             { return ea.o.get(ea.cpu.D[ea.register]) }
-func (ea *EADataRegister) set(value uint32)        { ea.o.set(&(ea.cpu.D[ea.register]), value) }
-func (ea *EADataRegister) timing() int             { return 0 }
-func (ea *EADataRegister) computedAddress() uint32 { return 0 }
+func (ea *EADataRegister) compute() Modifier { return ea }
+func (ea *EADataRegister) timing() int { return 0 }
+func (ea *EADataRegister) read() uint32 { return ea.cpu.D[ea.register] }
+func (ea *EADataRegister) write(value uint32){ ea.o.set(&(ea.cpu.D[ea.register]), value) }
 
 // 1 Ax
 type EAAddressRegister EADataRegister
-
-func (ea *EAAddressRegister) init(cpu *M68k, o *Operand, register int) {
-	ea.cpu, ea.o, ea.register = cpu, o, register
-}
-func (ea *EAAddressRegister) get() uint32          { return uint32(ea.o.get(uint32(ea.cpu.A[ea.register]))) }
-func (ea *EAAddressRegister) set(value uint32)     { ea.o.set(&(ea.cpu.A[ea.register]), value) }
-func (*EAAddressRegister) timing() int             { return 0 }
-func (*EAAddressRegister) computedAddress() uint32 { return 0 }
+func (ea *EAAddressRegister) read() uint32 { return uint32(ea.o.get(uint32(ea.cpu.A[ea.register]))) }
+func (ea *EAAddressRegister) write(value uint32) { ea.o.set(&(ea.cpu.A[ea.register]), value) }
+func (ea *EAAddressRegister) timing() int { return 0 }
+func (ea *EAAddressRegister) compute() Modifier { return ea }
 
 // 2 (Ax)
 type EAAddressRegisterIndirect struct {
-	cpu     *M68k
-	o       *Operand
-	address uint32
+	*addressModifier
+	register int
 }
-
-func (ea *EAAddressRegisterIndirect) init(cpu *M68k, o *Operand, register int) {
-	ea.cpu, ea.o, ea.address = cpu, o, cpu.A[register]
-}
-func (ea *EAAddressRegisterIndirect) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAAddressRegisterIndirect) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
 func (ea *EAAddressRegisterIndirect) timing() int {
 	if ea.o == Long {
 		return 8
@@ -86,17 +106,14 @@ func (ea *EAAddressRegisterIndirect) timing() int {
 		return 4
 	}
 }
-func (ea *EAAddressRegisterIndirect) computedAddress() uint32 { return ea.address }
+func (ea *EAAddressRegisterIndirect) compute() Modifier {
+	ea.address = ea.cpu.A[ea.register]
+	return ea
+}
+
 
 // 3 (Ax)+
 type EAAddressRegisterPostInc EAAddressRegisterIndirect
-
-func (ea *EAAddressRegisterPostInc) init(cpu *M68k, o *Operand, register int) {
-	ea.cpu, ea.o, ea.address = cpu, o, cpu.A[register]
-	cpu.A[register] += o.Size
-}
-func (ea *EAAddressRegisterPostInc) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAAddressRegisterPostInc) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
 func (ea *EAAddressRegisterPostInc) timing() int {
 	if ea.o == Long {
 		return 10
@@ -104,17 +121,18 @@ func (ea *EAAddressRegisterPostInc) timing() int {
 		return 6
 	}
 }
-func (ea *EAAddressRegisterPostInc) computedAddress() uint32 { return ea.address }
+func (ea *EAAddressRegisterPostInc) compute() Modifier {
+	ea.address = ea.cpu.A[ea.register]
+	ea.cpu.A[ea.register] += ea.o.Size
+	return ea
+}
 
 // 4 -(Ax)
 type EAAddressRegisterPreDec EAAddressRegisterIndirect
-
 func (ea *EAAddressRegisterPreDec) init(cpu *M68k, o *Operand, register int) {
 	cpu.A[register] -= o.Size
 	ea.cpu, ea.o, ea.address = cpu, o, cpu.A[register]
 }
-func (ea *EAAddressRegisterPreDec) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAAddressRegisterPreDec) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
 func (ea *EAAddressRegisterPreDec) timing() int {
 	if ea.o == Long {
 		return 10
@@ -122,16 +140,14 @@ func (ea *EAAddressRegisterPreDec) timing() int {
 		return 6
 	}
 }
-func (ea *EAAddressRegisterPreDec) computedAddress() uint32 { return ea.address }
+func (ea *EAAddressRegisterPreDec) compute() Modifier {
+	ea.cpu.A[ea.register] -= ea.o.Size
+	ea.address = ea.cpu.A[ea.register]
+	return ea
+}
 
 // 5 xxxx(Ax)
 type EAAddressRegisterWithDisplacement EAAddressRegisterIndirect
-
-func (ea *EAAddressRegisterWithDisplacement) init(cpu *M68k, o *Operand, register int) {
-	ea.cpu, ea.o, ea.address = cpu, o, uint32(int32(cpu.A[register])+int32(int16(cpu.popPC(Word))))
-}
-func (ea *EAAddressRegisterWithDisplacement) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAAddressRegisterWithDisplacement) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
 func (ea *EAAddressRegisterWithDisplacement) timing() int {
 	if ea.o == Long {
 		return 12
@@ -139,16 +155,13 @@ func (ea *EAAddressRegisterWithDisplacement) timing() int {
 		return 8
 	}
 }
-func (ea *EAAddressRegisterWithDisplacement) computedAddress() uint32 { return ea.address }
+func (ea *EAAddressRegisterWithDisplacement) compute() Modifier {
+	ea.address = uint32(int32(ea.cpu.A[ea.register])+int32(int16(ea.cpu.popPC(Word))))
+	return ea
+}
 
 // 5 xxxx(PC)
 type EAPCWithDisplacement EAAddressRegisterIndirect
-
-func (ea *EAPCWithDisplacement) init(cpu *M68k, o *Operand, _ int) {
-	ea.cpu, ea.o, ea.address = cpu, o, uint32(int32(cpu.PC)+int32(int16(cpu.popPC(Word))))
-}
-func (ea *EAPCWithDisplacement) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAPCWithDisplacement) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
 func (ea *EAPCWithDisplacement) timing() int {
 	if ea.o == Long {
 		return 12
@@ -156,35 +169,13 @@ func (ea *EAPCWithDisplacement) timing() int {
 		return 8
 	}
 }
-func (ea *EAPCWithDisplacement) computedAddress() uint32 { return ea.address }
+func (ea *EAPCWithDisplacement) compute() Modifier {
+ 	ea.address = uint32(int32(ea.cpu.PC)+int32(int16(ea.cpu.popPC(Word))))
+	return ea
+}
 
 // 6 xx(Ax, Rx.w/.l)
 type EAAddressRegisterWithIndex EAAddressRegisterIndirect
-
-func (ea *EAAddressRegisterWithIndex) init(cpu *M68k, o *Operand, register int) {
-	ea.cpu, ea.o = cpu, o
-	ext := int(int16(cpu.popPC(Word)))
-	displacement := int(int8(ext))
-	idxRegNumber := (ext >> 12) & 0x07
-	idxSize := (ext & 0x0800) == 0x0800
-	idxValue := 0
-	if (ext & 0x8000) == 0x8000 { // address register
-		if idxSize {
-			idxValue = int(int16(cpu.A[idxRegNumber]))
-		} else {
-			idxValue = int(cpu.A[idxRegNumber])
-		}
-	} else { // data register
-		if idxSize {
-			idxValue = int(int16(cpu.D[idxRegNumber]))
-		} else {
-			idxValue = int(cpu.D[idxRegNumber])
-		}
-	}
-	ea.address = uint32(int(cpu.A[register]) + idxValue + displacement)
-}
-func (ea *EAAddressRegisterWithIndex) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAAddressRegisterWithIndex) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
 func (ea *EAAddressRegisterWithIndex) timing() int {
 	if ea.o == Long {
 		return 14
@@ -192,35 +183,31 @@ func (ea *EAAddressRegisterWithIndex) timing() int {
 		return 10
 	}
 }
-func (ea *EAAddressRegisterWithIndex) computedAddress() uint32 { return ea.address }
-
-// 6 xx(PC, Rx.w/.l)
-type EAPCWithIndex EAAddressRegisterIndirect
-
-func (ea *EAPCWithIndex) init(cpu *M68k, o *Operand, _ int) {
-	ea.cpu, ea.o = cpu, o
-	ext := int(int16(cpu.popPC(Word)))
+func (ea *EAAddressRegisterWithIndex) compute() Modifier {
+	ext := int(int16(ea.cpu.popPC(Word)))
 	displacement := int(int8(ext))
 	idxRegNumber := (ext >> 12) & 0x07
 	idxSize := (ext & 0x0800) == 0x0800
 	idxValue := 0
 	if (ext & 0x8000) == 0x8000 { // address register
 		if idxSize {
-			idxValue = int(int16(cpu.A[idxRegNumber]))
+			idxValue = int(int16(ea.cpu.A[idxRegNumber]))
 		} else {
-			idxValue = int(cpu.A[idxRegNumber])
+			idxValue = int(ea.cpu.A[idxRegNumber])
 		}
 	} else { // data register
 		if idxSize {
-			idxValue = int(int16(cpu.D[idxRegNumber]))
+			idxValue = int(int16(ea.cpu.D[idxRegNumber]))
 		} else {
-			idxValue = int(cpu.D[idxRegNumber])
+			idxValue = int(ea.cpu.D[idxRegNumber])
 		}
 	}
-	ea.address = uint32(int(cpu.PC) + idxValue + displacement)
+	ea.address = uint32(int(ea.cpu.A[ea.register]) + idxValue + displacement)
+	return ea
 }
-func (ea *EAPCWithIndex) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAPCWithIndex) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
+
+// 6 xx(PC, Rx.w/.l)
+type EAPCWithIndex EAAddressRegisterIndirect
 func (ea *EAPCWithIndex) timing() int {
 	if ea.o == Long {
 		return 14
@@ -228,16 +215,31 @@ func (ea *EAPCWithIndex) timing() int {
 		return 10
 	}
 }
-func (ea *EAPCWithIndex) computedAddress() uint32 { return ea.address }
+func (ea *EAPCWithIndex) compute() Modifier {
+	ext := int(int16(ea.cpu.popPC(Word)))
+	displacement := int(int8(ext))
+	idxRegNumber := (ext >> 12) & 0x07
+	idxSize := (ext & 0x0800) == 0x0800
+	idxValue := 0
+	if (ext & 0x8000) == 0x8000 { // address register
+		if idxSize {
+			idxValue = int(int16(ea.cpu.A[idxRegNumber]))
+		} else {
+			idxValue = int(ea.cpu.A[idxRegNumber])
+		}
+	} else { // data register
+		if idxSize {
+			idxValue = int(int16(ea.cpu.D[idxRegNumber]))
+		} else {
+			idxValue = int(ea.cpu.D[idxRegNumber])
+		}
+	}
+	ea.address = uint32(int(ea.cpu.PC) + idxValue + displacement)
+	return ea
+}
 
 // 7. xxxx.w
 type EAAbsoluteWord EAAddressRegisterIndirect
-
-func (ea *EAAbsoluteWord) init(cpu *M68k, o *Operand, r int) {
-	ea.cpu, ea.o, ea.address = cpu, o, cpu.popPC(Word)
-}
-func (ea *EAAbsoluteWord) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAAbsoluteWord) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
 func (ea *EAAbsoluteWord) timing() int {
 	if ea.o == Long {
 		return 12
@@ -245,16 +247,13 @@ func (ea *EAAbsoluteWord) timing() int {
 		return 8
 	}
 }
-func (ea *EAAbsoluteWord) computedAddress() uint32 { return ea.address }
+func (ea *EAAbsoluteWord) compute() Modifier {
+	ea.address = ea.cpu.popPC(Word)
+	return ea
+}
 
 // 8. xxxx.l
 type EAAbsoluteLong EAAddressRegisterIndirect
-
-func (ea *EAAbsoluteLong) init(cpu *M68k, o *Operand, r int) {
-	ea.cpu, ea.o, ea.address = cpu, o, cpu.popPC(Long)
-}
-func (ea *EAAbsoluteLong) get() uint32      { return ea.cpu.read(ea.o, ea.address) }
-func (ea *EAAbsoluteLong) set(value uint32) { ea.cpu.write(ea.o, ea.address, value) }
 func (ea *EAAbsoluteLong) timing() int {
 	if ea.o == Long {
 		return 16
@@ -262,7 +261,12 @@ func (ea *EAAbsoluteLong) timing() int {
 		return 12
 	}
 }
-func (ea *EAAbsoluteLong) computedAddress() uint32 { return ea.address }
+func (ea *EAAbsoluteLong) compute() Modifier {
+	ea.address = ea.cpu.popPC(Long)
+	return ea
+}
+
+
 
 func (cpu *M68k) read(o *Operand, address uint32) uint32 {
 	address &= 0x00ffffff

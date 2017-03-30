@@ -15,23 +15,22 @@ var Error = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 type Instruction func(cpu *M68k)
 
 type M68k struct {
-	A            [8]uint32
-	D            [8]uint32
-	SR           StatusRegister
+	A        [8]uint32
+	D        [8]uint32
+	SR       StatusRegister
 	SSP, USP uint32
+	PC       uint32
+
 	memory       AddressHandler
-
-	PC uint32
 	instructions []Instruction
-	opcode       uint16
-
-	exception, halt      bool
+	eaVec        []EA
 }
 
 func NewM68k(memory AddressHandler) *M68k {
 	cpu := &M68k{}
 	cpu.memory = memory
 	cpu.SR = NewStatusRegister(cpu)
+	cpu.eaVec = NewEAVectors(cpu)
 	cpu.instructions = []Instruction{move}
 	cpu.Reset()
 
@@ -43,11 +42,13 @@ func (cpu *M68k) Reset() {
 }
 
 func (cpu *M68k) Execute() {
-/*	defer func() {
+	/*	defer func() {
 		//r := recover()
 
 	}n*/
-	if !cpu.halt {
-		// TODO execute
-	}
+
+}
+
+func (cpu *M68k) String() {
+
 }

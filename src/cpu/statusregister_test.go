@@ -5,7 +5,7 @@ import (
 )
 
 func buildStatusRegister() StatusRegister {
-	cpu := NewM68k(1000, nil)
+	cpu := NewM68k(NewMemoryHandler(1000, nil))
 	return NewStatusRegister(cpu)
 }
 
@@ -32,12 +32,12 @@ func TestStatusRegister_Get(t *testing.T) {
 func TestStatusRegister_S(t *testing.T) {
 	sr := buildStatusRegister()
 	cpu := sr.cpu
-	sr.setS(false)
+	sr.SetS(false)
 	if cpu.A[7] != cpu.USP {
 		t.Error("failed to switch to user mode")
 	}
 
-	sr.setS(true)
+	sr.SetS(true)
 	if cpu.A[7] != cpu.SSP {
 		t.Error("failed to switch to supervisor mode")
 	}

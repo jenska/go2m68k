@@ -55,7 +55,7 @@ func (mem *MemoryHandler) setMem8(a uint32, v uint8) bool {
 
 func (mem *MemoryHandler) Mem16(a uint32) (uint16, bool) {
 	if int(a)+1 < len(mem.ram) {
-		return uint16(mem.ram[a]) << 8 | uint16(mem.ram[a+1]), true
+		return uint16(mem.ram[a])<<8 | uint16(mem.ram[a+1]), true
 	} else if handler := mem.chipsets[a]; handler != nil {
 		return handler.Mem16(a)
 	} else {
@@ -76,7 +76,7 @@ func (mem *MemoryHandler) setMem16(a uint32, v uint16) bool {
 
 func (mem *MemoryHandler) Mem32(a uint32) (uint32, bool) {
 	if int(a)+3 < len(mem.ram) {
-		return uint32(mem.ram[a] << 24) | uint32(mem.ram[a+1] << 16) | uint32(mem.ram[a+2] << 8) | uint32(mem.ram[a+3]), true
+		return uint32(mem.ram[a]<<24) | uint32(mem.ram[a+1]<<16) | uint32(mem.ram[a+2]<<8) | uint32(mem.ram[a+3]), true
 	} else if handler := mem.chipsets[a]; handler != nil {
 		return handler.Mem32(a)
 	} else {
