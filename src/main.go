@@ -1,12 +1,13 @@
-package main
+package src
 
 import (
-	"cpu"
 	"fmt"
+	"cpu"
+	glog "github.com/golang/glog"
 )
 
 func main() {
-	fmt.Println("Hello World!")
+	glog.Info("Starting atari2go...")
 	m := cpu.NewMemoryHandler(1024*1024, nil)
 	c := cpu.NewM68k(m)
 	c.SR.SetS(true)

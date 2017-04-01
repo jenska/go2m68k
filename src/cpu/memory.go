@@ -1,6 +1,9 @@
 package cpu
 
-import "fmt"
+import (
+	"fmt"
+	glog "github.com/golang/glog"
+)
 
 type AddressHandler interface {
 	Mem8(a uint32) (v uint8, ok bool)
@@ -55,7 +58,9 @@ func (mem *MemoryHandler) setMem8(a uint32, v uint8) bool {
 
 func (mem *MemoryHandler) Mem16(a uint32) (uint16, bool) {
 	if int(a)+1 < len(mem.ram) {
-		return uint16(mem.ram[a])<<8 | uint16(mem.ram[a+1]), true
+		glog.V(2).Infof("read %s at address $%08x", mem.ram[a:(a+1)], a)
+
+		return uint16(mem.ram[a+1])<<8 | uint16(mem.ram[a]), true
 	} else if handler := mem.chipsets[a]; handler != nil {
 		return handler.Mem16(a)
 	} else {
@@ -65,8 +70,8 @@ func (mem *MemoryHandler) Mem16(a uint32) (uint16, bool) {
 
 func (mem *MemoryHandler) setMem16(a uint32, v uint16) bool {
 	if int(a)+1 < len(mem.ram) {
-		mem.ram[a] = uint8(v >> 8)
-		mem.ram[a+1] = uint8(v)
+		mem.ram[a] = uint8(v)
+		mem.ram[a+1] = uint8(v >> 8)
 		return true
 	} else if handler := mem.chipsets[a]; handler != nil {
 		return handler.setMem16(a, v)
@@ -76,7 +81,8 @@ func (mem *MemoryHandler) setMem16(a uint32, v uint16) bool {
 
 func (mem *MemoryHandler) Mem32(a uint32) (uint32, bool) {
 	if int(a)+3 < len(mem.ram) {
-		return uint32(mem.ram[a]<<24) | uint32(mem.ram[a+1]<<16) | uint32(mem.ram[a+2]<<8) | uint32(mem.ram[a+3]), true
+		r := uint32(mem.ram[a+3])<<24 | uint32(mem.ram[a+2])<<16 | uint32(mem.ram[a+1])<<8 | uint32(mem.ram[a])
+		return r, true
 	} else if handler := mem.chipsets[a]; handler != nil {
 		return handler.Mem32(a)
 	} else {
@@ -86,10 +92,10 @@ func (mem *MemoryHandler) Mem32(a uint32) (uint32, bool) {
 
 func (mem *MemoryHandler) setMem32(a uint32, v uint32) bool {
 	if int(a)+3 < len(mem.ram) {
-		mem.ram[a] = uint8(v >> 24)
-		mem.ram[a+1] = uint8(v >> 16)
-		mem.ram[a+2] = uint8(v >> 8)
-		mem.ram[a+3] = uint8(v)
+		mem.ram[a] = uint8(v)
+		mem.ram[a+1] = uint8(v >> 8)
+		mem.ram[a+2] = uint8(v >> 16)
+		mem.ram[a+3] = uint8(v >> 24)
 		return true
 	} else if handler := mem.chipsets[a]; handler != nil {
 		return handler.setMem32(a, v)
