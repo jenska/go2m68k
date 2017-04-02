@@ -5,7 +5,7 @@ import (
 )
 
 func buildStatusRegister() StatusRegister {
-	cpu := NewM68k(NewMemoryHandler(1000, nil))
+	cpu := NewM68k(NewMemoryHandler(1000))
 	return NewStatusRegister(cpu)
 }
 

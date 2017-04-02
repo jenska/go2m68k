@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewEAVectors(t *testing.T) {
-	cpu := NewM68k(NewMemoryHandler(1024, nil))
+	cpu := NewM68k(NewMemoryHandler(1024))
 	assert.NotNil(t, cpu)
 
 	eaVec := NewEAVectors(cpu)
@@ -15,7 +15,7 @@ func TestNewEAVectors(t *testing.T) {
 }
 
 func TestEADataRegister(t *testing.T) {
-	cpu := NewM68k(NewMemoryHandler(1024, nil))
+	cpu := NewM68k(NewMemoryHandler(1024))
 	assert.NotNil(t, cpu)
 	eaVec := NewEAVectors(cpu)
 	assert.NotNil(t, eaVec)
@@ -48,7 +48,7 @@ func TestEADataRegister(t *testing.T) {
 }
 
 func TestEAAddressRegister(t *testing.T) {
-	cpu := NewM68k(NewMemoryHandler(1024, nil))
+	cpu := NewM68k(NewMemoryHandler(1024))
 	eaVec := NewEAVectors(cpu)
 
 	// reg = A0
@@ -83,13 +83,13 @@ func TestEAAddressRegister(t *testing.T) {
 }
 
 func TestEAIndirect(t *testing.T) {
-	cpu := NewM68k(NewMemoryHandler(1024*1024, nil))
+	cpu := NewM68k(NewMemoryHandler(1024))
 	eaVec := NewEAVectors(cpu)
 
 	// (A0)
 	const A0 = (2 << 3) | 0
 
-	for i := 0x100; i < 0x120; i++ {
+	for i := 0x100; i < 0x120; i += 2 {
 		cpu.A[0] = uint32(i)
 		eb := eaVec[A0+Byte.eaVecOffset]
 		ew := eaVec[A0+Word.eaVecOffset]
@@ -106,6 +106,7 @@ func TestEAIndirect(t *testing.T) {
 		ml.write(0)
 		mb.write(0xff)
 		assert.Equal(t, uint32(0xff), mb.read())
+		fmt.Println(mb.read(),mw.read(),ml.read())
 		assert.Equal(t, uint32(0xff), mw.read(), fmt.Sprintf("error at address 0x%08x", i))
 		assert.Equal(t, uint32(0xff), ml.read(), fmt.Sprintf("error at address 0x%08x", i))
 
@@ -124,4 +125,91 @@ func TestEAIndirect(t *testing.T) {
 		assert.Equal(t, uint32(0xff01), mw.read())
 		assert.Equal(t, uint32(0xff01ff01), ml.read())
 	}
+}
+
+func TestEAPostInc(t *testing.T) {
+	cpu := NewM68k(NewMemoryHandler(1024))
+	eaVec := NewEAVectors(cpu)
+
+	// (A0)+
+	const A0 = (3 << 3) | 0
+	cpu.A[0] = uint32(0x100)
+	eb := eaVec[A0+Byte.eaVecOffset]
+	ew := eaVec[A0+Word.eaVecOffset]
+	el := eaVec[A0+Long.eaVecOffset]
+
+	mb := eb.compute()
+	assert.Equal(t, uint32(0x101), cpu.A[0])
+	mb.write(0xff)
+	assert.Equal(t, uint32(0xff), cpu.read(Byte, 0x100))
+
+	cpu.A[0] = uint32(0x100)
+	mw := ew.compute()
+	assert.Equal(t, uint32(0x102), cpu.A[0])
+	mw.write(0xffff)
+	assert.Equal(t, uint32(0xffff), cpu.read(Word, 0x100))
+
+	cpu.A[0] = uint32(0x100)
+	ml := el.compute()
+	assert.Equal(t, uint32(0x104), cpu.A[0])
+	ml.write(0xffffffff)
+}
+
+func TestEAPreDec(t *testing.T) {
+	cpu := NewM68k(NewMemoryHandler(1024))
+	eaVec := NewEAVectors(cpu)
+
+	// -(A0)
+	const A0 = (4 << 3) | 0
+
+	eb := eaVec[A0+Byte.eaVecOffset]
+	ew := eaVec[A0+Word.eaVecOffset]
+	el := eaVec[A0+Long.eaVecOffset]
+	assert.IsType(t, &EAAddressRegisterPreDec{}, eb)
+	assert.IsType(t, &EAAddressRegisterPreDec{}, ew)
+	assert.IsType(t, &EAAddressRegisterPreDec{}, el)
+
+	cpu.A[0] = 0x100
+	mb := eb.compute()
+	assert.Equal(t, uint32(0xff), cpu.A[0])
+	mb.write(0xff)
+	assert.Equal(t, uint32(0xff), cpu.read(Byte, 0xFF))
+
+	mw := ew.compute()
+	ml := el.compute()
+
+	mb.write(0xff)
+	assert.Equal(t, uint32(0xff), cpu.read(Byte, 0xff))
+	mw.write(0xffff)
+	ml.write(0)
+}
+
+func TestEAAddressRegisterWithDisplacement(t *testing.T) {
+	cpu := NewM68k(NewMemoryHandler(1024))
+	eaVec := NewEAVectors(cpu)
+
+	// xxxx(A0)
+	const A0 = (5 << 3) | 0
+
+	eb := eaVec[A0+Byte.eaVecOffset]
+	ew := eaVec[A0+Word.eaVecOffset]
+	el := eaVec[A0+Long.eaVecOffset]
+	assert.IsType(t, &EAAddressRegisterWithDisplacement{}, eb)
+	assert.IsType(t, &EAAddressRegisterWithDisplacement{}, ew)
+	assert.IsType(t, &EAAddressRegisterWithDisplacement{}, el)
+
+	cpu.A[0] = 0x100
+	cpu.PC = 0x200
+	cpu.pushPC(Word, 0x80)
+	cpu.write(Byte, 0x180, 0x23)
+	mb := eb.compute()
+	assert.Equal(t, uint32(0x23), mb.read())
+
+	cpu.A[0] = 0x100
+	cpu.PC = 0x200
+	cpu.pushPC(Word, 0x80)
+	cpu.write(Word, 0x180, 0x1234)
+	mw := ew.compute()
+	assert.Equal(t, uint32(0x1234), mw.read())
+
 }
