@@ -24,7 +24,9 @@ func NewM68k(memory AddressHandler) *M68k {
 	cpu := &M68k{}
 	cpu.memory = memory
 	cpu.SR = NewStatusRegister(cpu)
-	cpu.Reset()
+	cpu.SR.Set(0x2700)
+	cpu.A[7] = cpu.read(Long,XPT_SPR<<2)
+	cpu.PC = cpu.read(Long,XPT_PCR<<2)
 	return cpu
 }
 
