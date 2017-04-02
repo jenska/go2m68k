@@ -7,24 +7,24 @@ import (
 
 func TestMemoryHandler_Mem8(t *testing.T) {
 	mem := NewMemoryHandler(1000)
-	mem.setMem(Byte,0, 1)
-	if v, _ := mem.Mem(Byte,0); v != 1 {
+	mem.setMem(Byte, 0, 1)
+	if v, _ := mem.Mem(Byte, 0); v != 1 {
 		t.Error("failed to set byte value ")
 	}
 }
 
 func TestMemoryHandler_Mem16(t *testing.T) {
 	mem := NewMemoryHandler(1000)
-	mem.setMem(Word,0, 1)
-	if v, _ := mem.Mem(Word,0); v != 1 {
+	mem.setMem(Word, 0, 1)
+	if v, _ := mem.Mem(Word, 0); v != 1 {
 		t.Error("failed to set word value ")
 	}
 }
 
 func TestMemoryHandler_Mem32(t *testing.T) {
 	mem := NewMemoryHandler(1000)
-	mem.setMem(Long,0, 1)
-	if v, _ := mem.Mem(Long,0); v != 1 {
+	mem.setMem(Long, 0, 1)
+	if v, _ := mem.Mem(Long, 0); v != 1 {
 		t.Error("failed to set long value ")
 	}
 }
@@ -56,13 +56,13 @@ func TestMemoryHandler_RegisterChipset(t *testing.T) {
 	a = []uint32{0xffff8006}
 	mem.RegisterChipset(a, TestSystemController(0xffff8006))
 
-	if r, ok := mem.Mem(Byte,0xffff8001); ok == true {
+	if r, ok := mem.Mem(Byte, 0xffff8001); ok == true {
 		assert.Equal(t, uint32(123), r)
 	} else {
 		t.Error("failed to access chipset")
 	}
 
-	if r, ok := mem.Mem(Word,0xffff8006); ok == true {
+	if r, ok := mem.Mem(Word, 0xffff8006); ok == true {
 		assert.Equal(t, uint32(123), r)
 	} else {
 		t.Error("failed to access chipset")

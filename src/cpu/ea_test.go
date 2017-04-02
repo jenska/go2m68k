@@ -82,14 +82,17 @@ func TestEAAddressRegister(t *testing.T) {
 	assert.Equal(t, uint32(0xffff), ml.read())
 }
 
+
 func TestEAIndirect(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
 	eaVec := NewEAVectors(cpu)
 
+	peek := func (a uint32) uint32 { return cpu.read(Byte,a) }
+
 	// (A0)
 	const A0 = (2 << 3) | 0
 
-	for i := 0x100; i < 0x120; i += 2 {
+	for i := uint32(0x102); i < 0x110; i += 2 {
 		cpu.A[0] = uint32(i)
 		eb := eaVec[A0+Byte.eaVecOffset]
 		ew := eaVec[A0+Word.eaVecOffset]
@@ -104,10 +107,20 @@ func TestEAIndirect(t *testing.T) {
 		assert.NotNil(t, mb)
 
 		ml.write(0)
+		assert.Equal(t,uint32(0),peek(i))
+		assert.Equal(t,uint32(0),peek(i+1))
+		assert.Equal(t,uint32(0),peek(i+2))
+		assert.Equal(t,uint32(0),peek(i+3))
 		mb.write(0xff)
+		assert.Equal(t,uint32(0xff),peek(i))
+		assert.Equal(t,uint32(0),peek(i+1))
+		assert.Equal(t,uint32(0),peek(i+2))
+		assert.Equal(t,uint32(0),peek(i+3))
+
+
 		assert.Equal(t, uint32(0xff), mb.read())
-		fmt.Println(mb.read(),mw.read(),ml.read())
-		assert.Equal(t, uint32(0xff), mw.read(), fmt.Sprintf("error at address 0x%08x", i))
+		assert.Equal(t, uint32(0xff), mw.read(), fmt.Sprintf("error at address 0x%08x %02x %02x",
+			i, peek(i), peek(i+1)))
 		assert.Equal(t, uint32(0xff), ml.read(), fmt.Sprintf("error at address 0x%08x", i))
 
 		mw.write(0xffff)
@@ -211,5 +224,9 @@ func TestEAAddressRegisterWithDisplacement(t *testing.T) {
 	cpu.write(Word, 0x180, 0x1234)
 	mw := ew.compute()
 	assert.Equal(t, uint32(0x1234), mw.read())
+
+}
+
+func TestEAAddressRegisterWithIndex(t *testing.T) {
 
 }
