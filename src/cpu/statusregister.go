@@ -10,7 +10,7 @@ type StatusRegister struct {
 	cpu                 *M68k
 }
 
-func NewStatusRegister(cpu *M68k) StatusRegister {
+func newStatusRegister(cpu *M68k) StatusRegister {
 	return StatusRegister{cpu: cpu}
 }
 

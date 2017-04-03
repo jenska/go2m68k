@@ -2,6 +2,7 @@ package cpu
 
 import (
 	"fmt"
+	"container/list"
 )
 
 const (
@@ -38,27 +39,49 @@ const (
 type AddressHandler interface {
 	Mem(o *Operand, a uint32) (v uint32, ok bool)
 	setMem(o *Operand, a, v uint32) bool
+	start() uint32
+	end() uint32
 }
 
 type RAM []uint8
-type ChipSets map[uint32]AddressHandler
 
 type MemoryHandler struct {
 	ram      RAM
-	chipsets ChipSets
+	chipsets *list.List
 }
 
 func NewMemoryHandler(size int) *MemoryHandler {
-	return &MemoryHandler{make([]uint8, size), ChipSets{}}
+	return &MemoryHandler{make([]uint8, size), list.New()}
 }
 
-func (mem *MemoryHandler) RegisterChipset(addresses []uint32, handler AddressHandler) {
-	for _, a := range addresses {
-		if mem.chipsets[a] != nil || int(a) < len(mem.ram) {
-			panic(fmt.Sprintf("address space %08x already in use", a))
+func (mem *MemoryHandler) RegisterChipset(addressHandler AddressHandler) {
+	s1, e1 := addressHandler.start(), addressHandler.end()
+	for e := mem.chipsets.Front(); e != nil; e = e.Next() {
+		handler := e.Value.(AddressHandler)
+		s2, e2 := handler.start(), handler.end()
+		if (s1>=s2 && s1<=e2) || (e1<=e2 && e1>=s2) {
+			panic(fmt.Sprintf("address range $%08x - $%08x already allocated by %s ($%08x - $%08x)", s1,e1,handler,s2,e2))
 		}
-		mem.chipsets[a] = handler
 	}
+	mem.chipsets.PushFront(addressHandler)
+}
+
+func (mem *MemoryHandler) start() uint32 {
+	return 0
+}
+
+func (mem *MemoryHandler) end() uint32 {
+	return uint32(len(mem.ram) - 1)
+}
+
+func (mem *MemoryHandler) lookup(address uint32) AddressHandler {
+	for e := mem.chipsets.Front(); e != nil; e = e.Next() {
+		handler := e.Value.(AddressHandler)
+		if handler.start()>=address || handler.end()<=address {
+			return handler
+		}
+	}
+	return nil
 }
 
 func (mem *MemoryHandler) Mem(o *Operand, a uint32) (uint32, bool) {
@@ -68,12 +91,11 @@ func (mem *MemoryHandler) Mem(o *Operand, a uint32) (uint32, bool) {
 		case Long:
 			r |= uint32(mem.ram[a+3])<<24 | uint32(mem.ram[a+2])<<16
 			fallthrough
-
 		case Word:
 			r |= uint32(mem.ram[a+1]) << 8
 		}
 		return r, true
-	} else if handler := mem.chipsets[a]; handler != nil {
+	} else if handler := mem.lookup(a); handler != nil {
 		return handler.Mem(o, a)
 	} else {
 		return 0, false
@@ -92,7 +114,7 @@ func (mem *MemoryHandler) setMem(o *Operand, a, v uint32) bool {
 			mem.ram[a+1] = uint8(v >> 8)
 		}
 		return true
-	} else if handler := mem.chipsets[a]; handler != nil {
+	} else if handler := mem.lookup(a); handler != nil {
 		return handler.setMem(o, a, v)
 	}
 	return false
