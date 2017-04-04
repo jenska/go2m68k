@@ -23,7 +23,7 @@ type M68k struct {
 func NewM68k(memory AddressHandler) *M68k {
 	cpu := &M68k{}
 	cpu.memory = memory
-	cpu.initInstructionSet()
+	cpu.init68000InstructionSet()
 	cpu.SR = newStatusRegister(cpu)
 	cpu.SR.Set(0x2700)
 	cpu.A[7] = cpu.read(Long, XPT_SPR<<2)

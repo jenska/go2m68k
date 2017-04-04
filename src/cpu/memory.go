@@ -3,6 +3,7 @@ package cpu
 import (
 	"container/list"
 	"fmt"
+	"github.com/golang/glog"
 )
 
 const (
@@ -41,7 +42,9 @@ type IllegalAddressError struct {
 }
 
 func (e IllegalAddressError) Error() string {
-	return fmt.Sprintf("Failed to access address %08x", e.address)
+	result := fmt.Sprintf("Failed to access address %08x", e.address)
+	glog.Error(result)
+	return result
 }
 
 type AddressHandler interface {
