@@ -35,5 +35,5 @@ var movem_t_r_times = []int{0, 0, 12, 12, 0, 16, 18, 16, 20, 16, 18}
 var mover_t_m_times = []int{0, 0, 8, 0, 8, 12, 14, 12, 16, 0, 0}
 
 func (cpu *M68k) MoveFactory() Instruction {
-return nil
+	return nil
 }

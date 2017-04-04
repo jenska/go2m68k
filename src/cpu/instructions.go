@@ -1,9 +1,8 @@
 package cpu
 
-
 func (cpu *M68k) initInstructionSet() {
-	for i := 0; i<8; i++ {
-		cpu.instructions[0x4840 + i] = func() int {
+	for i := 0; i < 8; i++ {
+		cpu.instructions[0x4840+i] = func() int {
 			return swap(cpu, i)
 		}
 	}

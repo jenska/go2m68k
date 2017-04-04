@@ -1,8 +1,8 @@
 package cpu
 
 import (
-	"fmt"
 	"container/list"
+	"fmt"
 )
 
 const (
@@ -36,17 +36,23 @@ const (
 	USER_INTERRUPT_VECTORS   = 64
 )
 
-type AddressHandler interface {
-	Mem(o *Operand, a uint32) (v uint32, ok bool)
-	setMem(o *Operand, a, v uint32) bool
-	start() uint32
-	end() uint32
+type IllegalAddressError struct {
+	address uint32
 }
 
-type RAM []uint8
+func (e IllegalAddressError) Error() string {
+	return fmt.Sprintf("Failed to access address %08x", e.address)
+}
+
+type AddressHandler interface {
+	Read(o *Operand, a uint32) (v uint32, err error)
+	Write(o *Operand, a, v uint32) error
+	Start() uint32
+	End() uint32
+}
 
 type MemoryHandler struct {
-	ram      RAM
+	ram      []uint8
 	chipsets *list.List
 }
 
@@ -55,36 +61,31 @@ func NewMemoryHandler(size int) *MemoryHandler {
 }
 
 func (mem *MemoryHandler) RegisterChipset(addressHandler AddressHandler) {
-	s1, e1 := addressHandler.start(), addressHandler.end()
+	s1, e1 := addressHandler.Start(), addressHandler.End()
 	for e := mem.chipsets.Front(); e != nil; e = e.Next() {
 		handler := e.Value.(AddressHandler)
-		s2, e2 := handler.start(), handler.end()
-		if (s1>=s2 && s1<=e2) || (e1<=e2 && e1>=s2) {
-			panic(fmt.Sprintf("address range $%08x - $%08x already allocated by %s ($%08x - $%08x)", s1,e1,handler,s2,e2))
+		s2, e2 := handler.Start(), handler.End()
+		if (s1 >= s2 && s1 <= e2) || (e1 <= e2 && e1 >= s2) {
+			panic(fmt.Errorf("address range $%08x - $%08x already allocated by %s ($%08x - $%08x)", s1, e1, handler, s2, e2))
 		}
 	}
 	mem.chipsets.PushFront(addressHandler)
 }
 
-func (mem *MemoryHandler) start() uint32 {
-	return 0
-}
-
-func (mem *MemoryHandler) end() uint32 {
-	return uint32(len(mem.ram) - 1)
-}
+func (mem *MemoryHandler) Start() uint32 { return 0 }
+func (mem *MemoryHandler) End() uint32   { return uint32(len(mem.ram) - 1) }
 
 func (mem *MemoryHandler) lookup(address uint32) AddressHandler {
 	for e := mem.chipsets.Front(); e != nil; e = e.Next() {
 		handler := e.Value.(AddressHandler)
-		if handler.start()>=address || handler.end()<=address {
+		if handler.Start() >= address || handler.End() <= address {
 			return handler
 		}
 	}
 	return nil
 }
 
-func (mem *MemoryHandler) Mem(o *Operand, a uint32) (uint32, bool) {
+func (mem *MemoryHandler) Read(o *Operand, a uint32) (uint32, error) {
 	if int(a+o.Size) <= len(mem.ram) {
 		r := uint32(mem.ram[a])
 		switch o {
@@ -94,15 +95,15 @@ func (mem *MemoryHandler) Mem(o *Operand, a uint32) (uint32, bool) {
 		case Word:
 			r |= uint32(mem.ram[a+1]) << 8
 		}
-		return r, true
+		return r, nil
 	} else if handler := mem.lookup(a); handler != nil {
-		return handler.Mem(o, a)
+		return handler.Read(o, a)
 	} else {
-		return 0, false
+		return 0, IllegalAddressError{a}
 	}
 }
 
-func (mem *MemoryHandler) setMem(o *Operand, a, v uint32) bool {
+func (mem *MemoryHandler) Write(o *Operand, a, v uint32) error {
 	if int(a+o.Size) <= len(mem.ram) {
 		mem.ram[a] = uint8(v)
 		switch o {
@@ -113,9 +114,9 @@ func (mem *MemoryHandler) setMem(o *Operand, a, v uint32) bool {
 		case Word:
 			mem.ram[a+1] = uint8(v >> 8)
 		}
-		return true
+		return nil
 	} else if handler := mem.lookup(a); handler != nil {
-		return handler.setMem(o, a, v)
+		return handler.Write(o, a, v)
 	}
-	return false
+	return IllegalAddressError{a}
 }

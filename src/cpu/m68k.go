@@ -89,19 +89,21 @@ func (cpu *M68k) String() string {
 
 func (cpu *M68k) read(o *Operand, address uint32) uint32 {
 	address &= 0x00ffffff
-	if v, ok := cpu.memory.Mem(o, address); ok {
+	if v, err := cpu.memory.Read(o, address); err == nil {
 		return v
+	} else {
+		// TODO raise exception
+		return 0
 	}
-	// TODO raise exception
-	return 0
 }
 
 func (cpu *M68k) write(o *Operand, address uint32, value uint32) {
 	address &= 0x00ffffff
-	if cpu.memory.setMem(o, address, value) {
+	if err := cpu.memory.Write(o, address, value); err == nil {
 		return
+	} else {
+		// TODO raise exception
 	}
-	// TODO raise exception
 }
 
 func (cpu *M68k) popPC(o *Operand) uint32 {
