@@ -21,18 +21,17 @@ var r2MTiming = []int{0, 0, 8, 0, 8, 12, 14, 12, 16}
 
 func registerMove(cpu *M68k) {
 	// moveq 0x0700
-	for reg := 0; reg<8; reg++ {
-		for imm := 0; imm<256; imm++ {
-			opcode := 0x7000 + (reg<<9)  + imm
-			addInstruction(cpu, uint16(opcode), func() int {
-				return moveq(cpu,reg,imm)
-			})
+	for reg := 0; reg < 8; reg++ {
+		for imm := 0; imm < 256; imm++ {
+			opcode := 0x7000 + (reg << 9) + imm
+			data := int(int8(imm))
+			addInstruction(cpu, opcode, func() int { return moveq(cpu, reg, data) })
 		}
 	}
 }
 
-func moveq(cpu *M68k, register, data int) int {
-	cpu.D[register] = uint32(data)
+func moveq(cpu *M68k, reg, data int) int {
+	cpu.D[reg] = uint32(data)
 	cpu.SR.N = data < 0
 	cpu.SR.Z = data == 0
 	cpu.SR.C = false
