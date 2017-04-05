@@ -24,17 +24,16 @@ func registerMove(cpu *M68k) {
 	for reg := 0; reg < 8; reg++ {
 		for imm := 0; imm < 256; imm++ {
 			opcode := 0x7000 + (reg << 9) + imm
+			register := reg
 			data := int(int8(imm))
-			addInstruction(cpu, opcode, func() int { return moveq(cpu, reg, data) })
+			addInstruction(cpu, opcode, func() int { return moveq(cpu, register, data) })
 		}
 	}
 }
 
 func moveq(cpu *M68k, reg, data int) int {
 	cpu.D[reg] = uint32(data)
-	cpu.SR.N = data < 0
-	cpu.SR.Z = data == 0
-	cpu.SR.C = false
-	cpu.SR.V = false
+	cpu.SR.N, cpu.SR.Z = data < 0, data == 0
+	cpu.SR.C, cpu.SR.V = false, false
 	return 4
 }

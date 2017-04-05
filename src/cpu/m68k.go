@@ -47,7 +47,7 @@ func (cpu *M68k) Execute() int {
 		} else if (opcode & 0xf000) == 0xf000 {
 			return cpu.RaiseException(XPT_LNF)
 		}
-		glog.Errorf("Illegal instrcution $%04x ar $%x\n", opcode, cpu.ira)
+		glog.Errorf("Illegal instruction #$%04x at $%08x\n", opcode, cpu.ira)
 		return cpu.RaiseException(XPT_ILL)
 	}
 }
