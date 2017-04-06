@@ -21,12 +21,14 @@ func BenchmarkMoveq(b *testing.B) {
 	b.StartTimer()
 
 	n := 0
-	for n < b.N {
+	for {
 		cpu.PC = 0x1000
 		for reg := 0; reg < 8; reg++ {
 			for imm := 0; imm < 256; imm++ {
 				cpu.Execute() // moveq #imm, Dreg
-				n++
+				if n++; n >= b.N {
+					return
+				}
 			}
 		}
 	}

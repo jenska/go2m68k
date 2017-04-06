@@ -19,19 +19,14 @@ var longExecutionTime = [][]int{{4, 4, 12, 12, 12, 16, 18, 16, 20},
 var m2RTiming = []int{0, 0, 12, 12, 0, 16, 18, 16, 20, 16, 18}
 var r2MTiming = []int{0, 0, 8, 0, 8, 12, 14, 12, 16}
 
-func registerMove(cpu *M68k) {
-	// moveq 0x0700
-	for reg := 0; reg < 8; reg++ {
-		for imm := 0; imm < 256; imm++ {
-			opcode := 0x7000 + (reg << 9) + imm
-			register := reg
-			data := int(int8(imm))
-			addInstruction(cpu, opcode, func() int { return moveq(cpu, register, data) })
-		}
-	}
+func move(cpu *M68k) int {
+	return 0
 }
 
-func moveq(cpu *M68k, reg, data int) int {
+func moveq(cpu *M68k) int {
+	opcode := cpu.ir
+	reg := (opcode >> 9) & 0x7
+	data := int(int8(opcode & 0xff))
 	cpu.D[reg] = uint32(data)
 	cpu.SR.N, cpu.SR.Z = data < 0, data == 0
 	cpu.SR.C, cpu.SR.V = false, false

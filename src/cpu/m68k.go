@@ -5,8 +5,6 @@ import (
 	"github.com/golang/glog"
 )
 
-type Instruction func() int
-
 type M68k struct {
 	A        [8]uint32
 	D        [8]uint32
@@ -17,7 +15,8 @@ type M68k struct {
 	memory AddressHandler
 
 	ira          uint32
-	instructions [0x10000]Instruction
+	ir           uint16
+	instructions []Instruction
 }
 
 func NewM68k(memory AddressHandler) *M68k {
@@ -37,17 +36,17 @@ func (cpu *M68k) Reset() {
 
 func (cpu *M68k) Execute() int {
 	cpu.ira = cpu.PC
-	opcode := cpu.popPC(Word)
+	cpu.ir = uint16(cpu.popPC(Word))
 
-	if instruction := cpu.instructions[opcode]; instruction != nil {
-		return instruction()
+	if instruction := cpu.instructions[cpu.ir>>6]; instruction != nil {
+		return instruction(cpu)
 	} else {
-		if (opcode & 0xa000) == 0xa000 {
+		if (cpu.ir & 0xa000) == 0xa000 {
 			return cpu.RaiseException(XPT_LNA)
-		} else if (opcode & 0xf000) == 0xf000 {
+		} else if (cpu.ir & 0xf000) == 0xf000 {
 			return cpu.RaiseException(XPT_LNF)
 		}
-		glog.Errorf("Illegal instruction #$%04x at $%08x\n", opcode, cpu.ira)
+		glog.Errorf("Illegal instruction #$%04x at $%08x\n", cpu.ir, cpu.ira)
 		return cpu.RaiseException(XPT_ILL)
 	}
 }
