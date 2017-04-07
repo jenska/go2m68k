@@ -2,22 +2,23 @@ package m68k
 
 import (
 	"fmt"
-	assert "github.com/stretchr/testify/assert"
 	"testing"
+
+	assert "github.com/stretchr/testify/assert"
 )
 
 func TestNewEAVectors(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
 	assert.NotNil(t, cpu)
 
-	eaVec := NewEAVectors(cpu)
+	eaVec := newEAVectors(cpu)
 	assert.NotNil(t, eaVec)
 }
 
 func TestEADataRegister(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
 	assert.NotNil(t, cpu)
-	eaVec := NewEAVectors(cpu)
+	eaVec := newEAVectors(cpu)
 	assert.NotNil(t, eaVec)
 	// reg = D0
 	eb := eaVec[0+Byte.eaVecOffset]
@@ -49,7 +50,7 @@ func TestEADataRegister(t *testing.T) {
 
 func TestEAAddressRegister(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := NewEAVectors(cpu)
+	eaVec := newEAVectors(cpu)
 
 	// reg = A0
 	const A0 = (1 << 3) | 0
@@ -84,9 +85,9 @@ func TestEAAddressRegister(t *testing.T) {
 
 func TestEAIndirect(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := NewEAVectors(cpu)
+	eaVec := newEAVectors(cpu)
 
-	peek := func(a uint32) uint32 { return cpu.read(Byte, a) }
+	peek := func(a uint32) uint32 { return cpu.Read(Byte, a) }
 
 	// (A0)
 	const A0 = (2 << 3) | 0
@@ -140,7 +141,7 @@ func TestEAIndirect(t *testing.T) {
 
 func TestEAPostInc(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := NewEAVectors(cpu)
+	eaVec := newEAVectors(cpu)
 
 	// (A0)+
 	const A0 = (3 << 3) | 0
@@ -152,13 +153,13 @@ func TestEAPostInc(t *testing.T) {
 	mb := eb.compute()
 	assert.Equal(t, uint32(0x101), cpu.A[0])
 	mb.write(0xff)
-	assert.Equal(t, uint32(0xff), cpu.read(Byte, 0x100))
+	assert.Equal(t, uint32(0xff), cpu.Read(Byte, 0x100))
 
 	cpu.A[0] = uint32(0x100)
 	mw := ew.compute()
 	assert.Equal(t, uint32(0x102), cpu.A[0])
 	mw.write(0xffff)
-	assert.Equal(t, uint32(0xffff), cpu.read(Word, 0x100))
+	assert.Equal(t, uint32(0xffff), cpu.Read(Word, 0x100))
 
 	cpu.A[0] = uint32(0x100)
 	ml := el.compute()
@@ -168,7 +169,7 @@ func TestEAPostInc(t *testing.T) {
 
 func TestEAPreDec(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := NewEAVectors(cpu)
+	eaVec := newEAVectors(cpu)
 
 	// -(A0)
 	const A0 = (4 << 3) | 0
@@ -184,20 +185,20 @@ func TestEAPreDec(t *testing.T) {
 	mb := eb.compute()
 	assert.Equal(t, uint32(0xff), cpu.A[0])
 	mb.write(0xff)
-	assert.Equal(t, uint32(0xff), cpu.read(Byte, 0xFF))
+	assert.Equal(t, uint32(0xff), cpu.Read(Byte, 0xFF))
 
 	mw := ew.compute()
 	ml := el.compute()
 
 	mb.write(0xff)
-	assert.Equal(t, uint32(0xff), cpu.read(Byte, 0xff))
+	assert.Equal(t, uint32(0xff), cpu.Read(Byte, 0xff))
 	mw.write(0xffff)
 	ml.write(0)
 }
 
 func TestEAAddressRegisterWithDisplacement(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := NewEAVectors(cpu)
+	eaVec := newEAVectors(cpu)
 
 	// xxxx(A0)
 	const A0 = (5 << 3) | 0
@@ -212,14 +213,14 @@ func TestEAAddressRegisterWithDisplacement(t *testing.T) {
 	cpu.A[0] = 0x100
 	cpu.PC = 0x200
 	cpu.pushPC(Word, 0x80)
-	cpu.write(Byte, 0x180, 0x23)
+	cpu.Write(Byte, 0x180, 0x23)
 	mb := eb.compute()
 	assert.Equal(t, uint32(0x23), mb.read())
 
 	cpu.A[0] = 0x100
 	cpu.PC = 0x200
 	cpu.pushPC(Word, 0x80)
-	cpu.write(Word, 0x180, 0x1234)
+	cpu.Write(Word, 0x180, 0x1234)
 	mw := ew.compute()
 	assert.Equal(t, uint32(0x1234), mw.read())
 

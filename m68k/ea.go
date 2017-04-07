@@ -1,6 +1,6 @@
 package m68k
 
-type Operand struct {
+type operand struct {
 	Size        uint32
 	AlignedSize uint32
 	Msb         uint32
@@ -10,20 +10,19 @@ type Operand struct {
 	formatter   string
 }
 
-const Byte = &Operand{1, 2, 0x80, 0xff, ".b", 0, "%02x"}
+var Byte = &operand{1, 2, 0x80, 0xff, ".b", 0, "%02x"}
+var Word = &operand{2, 2, 0x8000, 0xffff, ".w", 64, "%04x"}
+var Long = &operand{4, 4, 0x80000000, 0xffffffff, ".l", 128, "%08x"}
 
-var Word = &Operand{2, 2, 0x8000, 0xffff, ".w", 64, "%04x"}
-var Long = &Operand{4, 4, 0x80000000, 0xffffffff, ".l", 128, "%08x"}
-
-func (o *Operand) isNegative(value uint32) bool {
+func (o *operand) isNegative(value uint32) bool {
 	return (o.Msb & value) != 0
 }
 
-func (o *Operand) set(target *uint32, value uint32) {
+func (o *operand) set(target *uint32, value uint32) {
 	*target = (*target & ^o.Mask) | (value & o.Mask)
 }
 
-func (o *Operand) getSigned(value uint32) int32 {
+func (o *operand) getSigned(value uint32) int32 {
 	v := uint32(value)
 	if o.isNegative(v) {
 		return int32(v | ^o.Mask)
@@ -31,7 +30,7 @@ func (o *Operand) getSigned(value uint32) int32 {
 	return int32(v & o.Mask)
 }
 
-func (o *Operand) get(value uint32) uint32 {
+func (o *operand) get(value uint32) uint32 {
 	return value & o.Mask
 }
 
@@ -47,21 +46,21 @@ type Modifier interface {
 
 // Helper for read and write of precomputed addresses
 type addressModifier struct {
-	cpu     *M68k
-	o       *Operand
+	cpu     *M68K
+	o       *operand
 	address uint32
 	cycle   int
 }
 
-func (a *addressModifier) read() uint32       { return a.cpu.read(a.o, a.address) }
-func (a *addressModifier) write(value uint32) { a.cpu.write(a.o, a.address, value) }
+func (a *addressModifier) read() uint32       { return a.cpu.Read(a.o, a.address) }
+func (a *addressModifier) write(value uint32) { a.cpu.Write(a.o, a.address, value) }
 func (a *addressModifier) timing() int        { return a.cycle }
 
-func NewEAVectors(cpu *M68k) []EA {
+func newEAVectors(cpu *M68K) []EA {
 	eaVec := make([]EA, 3*(1<<6))
 	cyclesWord := []int{0, 0, 4, 6, 6, 8, 10, 8, 12, 8, 10, 8}
 	cyclesLong := []int{0, 0, 8, 10, 10, 12, 14, 12, 16, 12, 14, 12}
-	for _, o := range []*Operand{Byte, Word, Long} {
+	for _, o := range []*operand{Byte, Word, Long} {
 		cycles := cyclesWord
 		if o == Long {
 			cycles = cyclesLong
@@ -86,8 +85,8 @@ func NewEAVectors(cpu *M68k) []EA {
 
 // 0 Dx
 type EADataRegister struct {
-	cpu      *M68k
-	o        *Operand
+	cpu      *M68K
+	o        *operand
 	register int
 }
 
@@ -127,7 +126,7 @@ func (ea *EAAddressRegisterPostInc) compute() Modifier {
 // 4 -(Ax)
 type EAAddressRegisterPreDec EAAddressRegisterIndirect
 
-func (ea *EAAddressRegisterPreDec) init(cpu *M68k, o *Operand, register int) {
+func (ea *EAAddressRegisterPreDec) init(cpu *M68K, o *operand, register int) {
 	cpu.A[register] -= o.Size
 	ea.cpu, ea.o, ea.address = cpu, o, cpu.A[register]
 }

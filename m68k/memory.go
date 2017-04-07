@@ -3,22 +3,23 @@ package m68k
 import (
 	"container/list"
 	"fmt"
+
 	"github.com/golang/glog"
 )
 
 const (
-	XPT_SPR  = 0
-	XPT_PCR  = 1
-	XPT_BUS  = 2
-	XPT_ADR  = 3
-	XPT_ILL  = 4
-	XPT_DBZ  = 5
-	XPT_CHKN = 6
-	XPT_TRV  = 7
-	XPT_PRV  = 8
-	XPT_TRC  = 9
-	XPT_LNA  = 10
-	XPT_LNF  = 11
+	XptSpr  = 0
+	XptPcr  = 1
+	XptBus  = 2
+	XptAdr  = 3
+	XptIll  = 4
+	XptDbz  = 5
+	XptChkn = 6
+	XptTrv  = 7
+	XptPrv  = 8
+	XptTrc  = 9
+	XptLna  = 10
+	XptLnf  = 11
 
 	XPT_FPU = 13
 
@@ -48,8 +49,8 @@ func (e IllegalAddressError) Error() string {
 }
 
 type AddressHandler interface {
-	Read(o *Operand, a uint32) (v uint32, err error)
-	Write(o *Operand, a, v uint32) error
+	Read(o *operand, a uint32) (v uint32, err error)
+	Write(o *operand, a, v uint32) error
 	Start() uint32
 	End() uint32
 }
@@ -88,7 +89,7 @@ func (mem *MemoryHandler) lookup(address uint32) AddressHandler {
 	return nil
 }
 
-func (mem *MemoryHandler) Read(o *Operand, a uint32) (uint32, error) {
+func (mem *MemoryHandler) Read(o *operand, a uint32) (uint32, error) {
 	if int(a+o.Size) <= len(mem.ram) {
 		r := uint32(mem.ram[a])
 		switch o {
@@ -106,7 +107,7 @@ func (mem *MemoryHandler) Read(o *Operand, a uint32) (uint32, error) {
 	}
 }
 
-func (mem *MemoryHandler) Write(o *Operand, a, v uint32) error {
+func (mem *MemoryHandler) Write(o *operand, a, v uint32) error {
 	if int(a+o.Size) <= len(mem.ram) {
 		mem.ram[a] = uint8(v)
 		switch o {

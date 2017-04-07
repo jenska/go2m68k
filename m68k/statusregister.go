@@ -4,20 +4,21 @@ import (
 	"fmt"
 )
 
+// M68000 Status Register
 type StatusRegister struct {
 	C, V, Z, N, X, s, T bool
 	Interrupts          uint16
-	cpu                 *M68k
+	cpu                 *M68K
 }
 
-func newStatusRegister(cpu *M68k) StatusRegister {
+func newStatusRegister(cpu *M68K) StatusRegister {
 	return StatusRegister{cpu: cpu}
 }
 
 func (sr *StatusRegister) Get() uint16 {
 	result := uint16(0)
 	if sr.C {
-		result += 1
+		result++
 	}
 	if sr.V {
 		result += 2

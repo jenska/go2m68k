@@ -2,8 +2,9 @@ package m68k
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var cpu = NewM68k(NewMemoryHandler(1024 * 1024))
@@ -14,7 +15,7 @@ func BenchmarkMoveq(b *testing.B) {
 	for reg := 0; reg < 8; reg++ {
 		for imm := 0; imm < 256; imm++ {
 			opcode := 0x7000 + (reg << 9) + imm
-			cpu.write(Word, address, uint32(opcode))
+			cpu.Write(Word, address, uint32(opcode))
 			address += Word.Size
 		}
 	}
@@ -41,7 +42,8 @@ func TestMoveq(t *testing.T) {
 	for reg := 0; reg < 8; reg++ {
 		for imm := 0; imm < 256; imm++ {
 			opcode := 0x7000 + (reg << 9) + imm
-			cpu.write(Word, address, uint32(opcode))
+			//fmt.Printf("set opcode $%04x imm=%02x \n", opcode, imm)
+			cpu.Write(Word, address, uint32(opcode))
 			address += Word.Size
 		}
 	}

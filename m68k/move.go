@@ -19,25 +19,27 @@ var longExecutionTime = [][]int{{4, 4, 12, 12, 12, 16, 18, 16, 20},
 var m2RTiming = []int{0, 0, 12, 12, 0, 16, 18, 16, 20, 16, 18}
 var r2MTiming = []int{0, 0, 8, 0, 8, 12, 14, 12, 16}
 
-func move(cpu *M68k) int {
-	return 0
+func registerMoveInstructions(cpu *M68K) {
+
+	// moveq
+	for reg := 0; reg < 8; reg++ {
+		for value := -128; value < 128; value++ {
+			opcode := 0x7000 + (reg << 9) + int(uint8(value))
+			cpu.registerInstruction(opcode, &moveq{uint32(value), &cpu.D[reg], value < 0, value == 0})
+		}
+	}
 }
 
-/*
-
-
-	opcode := cpu.ir
-	reg := (opcode >> 9) & 0x7
-	data := int(int8(opcode & 0xff))
-*/
 type moveq struct {
 	value  uint32
 	target *uint32
+	n      bool
+	z      bool
 }
 
-func (m *moveq) Execute(cpu *M68k) int {
+func (m *moveq) execute(cpu *M68K) int {
 	*m.target = m.value
-	cpu.SR.N, cpu.SR.Z = m.value < 0, m.value == 0
+	cpu.SR.N, cpu.SR.Z = m.n, m.z
 	cpu.SR.C, cpu.SR.V = false, false
 	return 4
 }

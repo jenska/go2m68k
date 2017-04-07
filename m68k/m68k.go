@@ -6,53 +6,45 @@ import (
 	"github.com/golang/glog"
 )
 
-type M68k struct {
+type M68K struct {
 	A        [8]uint32
 	D        [8]uint32
 	SR       StatusRegister
 	SSP, USP uint32
 	PC       uint32
 
-	memory AddressHandler
-
-	ira          uint32
-	ir           uint16
-	instructions []Instruction
+	memory       AddressHandler
+	instructions []instruction
 }
 
-func NewM68k(memory AddressHandler) *M68k {
-	cpu := &M68k{}
+// New M68k CPU instance
+func NewM68k(memory AddressHandler) *M68K {
+	cpu := &M68K{}
 	cpu.memory = memory
 	cpu.init68000InstructionSet()
 	cpu.SR = newStatusRegister(cpu)
 	cpu.SR.Set(0x2700)
-	cpu.A[7] = cpu.read(Long, XPT_SPR<<2)
-	cpu.PC = cpu.read(Long, XPT_PCR<<2)
+	cpu.A[7] = cpu.Read(Long, XptSpr<<2)
+	cpu.PC = cpu.Read(Long, XptPcr<<2)
 	return cpu
 }
 
-func (cpu *M68k) Reset() {
+func (cpu *M68K) Reset() {
 	// TODO reset
 }
 
-func (cpu *M68k) Execute() int {
-	cpu.ira = cpu.PC
-	cpu.ir = uint16(cpu.popPC(Word))
-
-	if instruction := cpu.instructions[cpu.ir>>6]; instruction != nil {
-		return instruction(cpu)
+func (cpu *M68K) Execute() int {
+	ira := cpu.PC
+	opcode := uint16(cpu.popPC(Word))
+	if instruction := cpu.instructions[opcode]; instruction != nil {
+		return instruction.execute(cpu)
 	} else {
-		if (cpu.ir & 0xa000) == 0xa000 {
-			return cpu.RaiseException(XPT_LNA)
-		} else if (cpu.ir & 0xf000) == 0xf000 {
-			return cpu.RaiseException(XPT_LNF)
-		}
-		glog.Errorf("Illegal instruction #$%04x at $%08x\n", cpu.ir, cpu.ira)
-		return cpu.RaiseException(XPT_ILL)
+		glog.Errorf("Illegal instruction #$%04x at $%08x\n", opcode, ira)
+		return cpu.RaiseException(XptIll)
 	}
 }
 
-func (cpu *M68k) RaiseException(vector uint16) int {
+func (cpu *M68K) RaiseException(vector uint16) int {
 	address := uint32(vector) << 2
 	cpu.pushSP(Long, cpu.PC)
 	cpu.pushSP(Word, uint32(cpu.SR.Get()))
@@ -62,8 +54,8 @@ func (cpu *M68k) RaiseException(vector uint16) int {
 	}
 	cpu.SR.T = false
 
-	if address = cpu.read(Long, address); address == 0 {
-		if address = cpu.read(Long, UNINITIALIZED_INTERRUPT_VECTOR<<2); address == 0 {
+	if address = cpu.Read(Long, address); address == 0 {
+		if address = cpu.Read(Long, UNINITIALIZED_INTERRUPT_VECTOR<<2); address == 0 {
 			panic(fmt.Errorf("Interrupt vector not set for uninitialised interrupt vector while trapping uninitialised vector %d\n", vector))
 		}
 	}
@@ -73,7 +65,7 @@ func (cpu *M68k) RaiseException(vector uint16) int {
 }
 
 // TODO Disassemble current instruction
-func (cpu *M68k) String() string {
+func (cpu *M68K) String() string {
 	d := cpu.D
 	a := cpu.A
 	format := "D0: %08x   D4: %08x   A0: %08x   A4: %08x     PC:  %08x\n" +
@@ -87,7 +79,7 @@ func (cpu *M68k) String() string {
 		d[3], d[7], a[3], a[7], cpu.SSP)
 }
 
-func (cpu *M68k) read(o *Operand, address uint32) uint32 {
+func (cpu *M68K) Read(o *operand, address uint32) uint32 {
 	address &= 0x00ffffff
 	if v, err := cpu.memory.Read(o, address); err == nil {
 		return v
@@ -97,7 +89,7 @@ func (cpu *M68k) read(o *Operand, address uint32) uint32 {
 	}
 }
 
-func (cpu *M68k) write(o *Operand, address uint32, value uint32) {
+func (cpu *M68K) Write(o *operand, address uint32, value uint32) {
 	address &= 0x00ffffff
 	if err := cpu.memory.Write(o, address, value); err == nil {
 		return
@@ -106,24 +98,24 @@ func (cpu *M68k) write(o *Operand, address uint32, value uint32) {
 	}
 }
 
-func (cpu *M68k) popPC(o *Operand) uint32 {
-	result := cpu.read(o, cpu.PC)
+func (cpu *M68K) popPC(o *operand) uint32 {
+	result := cpu.Read(o, cpu.PC)
 	cpu.PC += o.Size
 	return result
 }
 
-func (cpu *M68k) pushPC(o *Operand, v uint32) {
+func (cpu *M68K) pushPC(o *operand, v uint32) {
 	cpu.PC -= o.Size
-	cpu.write(o, cpu.PC, v)
+	cpu.Write(o, cpu.PC, v)
 }
 
-func (cpu *M68k) popSP(o *Operand) uint32 {
-	result := cpu.read(o, cpu.A[7])
+func (cpu *M68K) popSP(o *operand) uint32 {
+	result := cpu.Read(o, cpu.A[7])
 	cpu.A[7] += o.Size
 	return result
 }
 
-func (cpu *M68k) pushSP(o *Operand, v uint32) {
+func (cpu *M68K) pushSP(o *operand, v uint32) {
 	cpu.A[7] -= o.Size
-	cpu.write(o, cpu.A[7], v)
+	cpu.Write(o, cpu.A[7], v)
 }
