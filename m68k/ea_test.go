@@ -1,4 +1,4 @@
-package m68
+package m68k
 
 import (
 	"fmt"
