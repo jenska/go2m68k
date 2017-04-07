@@ -1,4 +1,4 @@
-package cpu
+package m68
 
 type Operand struct {
 	Size        uint32
