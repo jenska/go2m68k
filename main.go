@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cpu"
+	"m68k"
 	"flag"
 	"fmt"
 	glog "github.com/golang/glog"
