@@ -1,4 +1,4 @@
-package cpu
+package m68k
 
 var shortExecutionTime = [][]int{{4, 4, 8, 8, 8, 12, 14, 12, 16},
 	{4, 4, 8, 8, 8, 12, 14, 12, 16}, {8, 8, 12, 12, 12, 16, 18, 16, 20},
