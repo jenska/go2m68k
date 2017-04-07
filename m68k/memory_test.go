@@ -1,4 +1,4 @@
-package cpu
+package m68k
 
 import (
 	"github.com/stretchr/testify/assert"
