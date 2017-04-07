@@ -23,12 +23,21 @@ func move(cpu *M68k) int {
 	return 0
 }
 
-func moveq(cpu *M68k) int {
+/*
+
+
 	opcode := cpu.ir
 	reg := (opcode >> 9) & 0x7
 	data := int(int8(opcode & 0xff))
-	cpu.D[reg] = uint32(data)
-	cpu.SR.N, cpu.SR.Z = data < 0, data == 0
+*/
+type moveq struct {
+	value  uint32
+	target *uint32
+}
+
+func (m *moveq) Execute(cpu *M68k) int {
+	*m.target = m.value
+	cpu.SR.N, cpu.SR.Z = m.value < 0, m.value == 0
 	cpu.SR.C, cpu.SR.V = false, false
 	return 4
 }

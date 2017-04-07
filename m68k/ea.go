@@ -1,4 +1,4 @@
-package m68
+package m68k
 
 type Operand struct {
 	Size        uint32
@@ -10,7 +10,8 @@ type Operand struct {
 	formatter   string
 }
 
-var Byte = &Operand{1, 2, 0x80, 0xff, ".b", 0, "%02x"}
+const Byte = &Operand{1, 2, 0x80, 0xff, ".b", 0, "%02x"}
+
 var Word = &Operand{2, 2, 0x8000, 0xffff, ".w", 64, "%04x"}
 var Long = &Operand{4, 4, 0x80000000, 0xffffffff, ".l", 128, "%08x"}
 

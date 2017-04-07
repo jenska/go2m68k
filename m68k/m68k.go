@@ -2,6 +2,7 @@ package m68k
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 )
 
@@ -63,7 +64,7 @@ func (cpu *M68k) RaiseException(vector uint16) int {
 
 	if address = cpu.read(Long, address); address == 0 {
 		if address = cpu.read(Long, UNINITIALIZED_INTERRUPT_VECTOR<<2); address == 0 {
-			panic(fmt.Sprintf("Interrupt vector not set for uninitialised interrupt vector while trapping uninitialised vector %d\n", vector))
+			panic(fmt.Errorf("Interrupt vector not set for uninitialised interrupt vector while trapping uninitialised vector %d\n", vector))
 		}
 	}
 
