@@ -1,4 +1,4 @@
-package cpu
+package m68k
 
 type Instruction func(cpu *M68k) int
 
