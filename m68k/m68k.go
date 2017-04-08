@@ -14,6 +14,7 @@ type M68K struct {
 	PC       uint32
 
 	memory       AddressHandler
+	eahandlers   []ea
 	instructions []instruction
 }
 

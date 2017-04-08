@@ -21,9 +21,9 @@ func TestEADataRegister(t *testing.T) {
 	eaVec := newEAVectors(cpu)
 	assert.NotNil(t, eaVec)
 	// reg = D0
-	eb := eaVec[0+Byte.eaVecOffset]
-	ew := eaVec[0+Word.eaVecOffset]
-	el := eaVec[0+Long.eaVecOffset]
+	eb := eaVec[0+Byte.eaOffset]
+	ew := eaVec[0+Word.eaOffset]
+	el := eaVec[0+Long.eaOffset]
 	assert.NotNil(t, eb)
 
 	mb := eb.compute()
@@ -54,9 +54,9 @@ func TestEAAddressRegister(t *testing.T) {
 
 	// reg = A0
 	const A0 = (1 << 3) | 0
-	eb := eaVec[A0+Byte.eaVecOffset]
-	ew := eaVec[A0+Word.eaVecOffset]
-	el := eaVec[A0+Long.eaVecOffset]
+	eb := eaVec[A0+Byte.eaOffset]
+	ew := eaVec[A0+Word.eaOffset]
+	el := eaVec[A0+Long.eaOffset]
 	assert.IsType(t, &eaAddressRegister{}, eb)
 	assert.IsType(t, &eaAddressRegister{}, ew)
 	assert.IsType(t, &eaAddressRegister{}, el)
@@ -94,9 +94,9 @@ func TestEAIndirect(t *testing.T) {
 
 	for i := uint32(0x102); i < 0x110; i += 2 {
 		cpu.A[0] = uint32(i)
-		eb := eaVec[A0+Byte.eaVecOffset]
-		ew := eaVec[A0+Word.eaVecOffset]
-		el := eaVec[A0+Long.eaVecOffset]
+		eb := eaVec[A0+Byte.eaOffset]
+		ew := eaVec[A0+Word.eaOffset]
+		el := eaVec[A0+Long.eaOffset]
 		assert.IsType(t, &eaAddressRegisterIndirect{}, eb)
 		assert.IsType(t, &eaAddressRegisterIndirect{}, ew)
 		assert.IsType(t, &eaAddressRegisterIndirect{}, el)
@@ -146,9 +146,9 @@ func TestEAPostInc(t *testing.T) {
 	// (A0)+
 	const A0 = (3 << 3) | 0
 	cpu.A[0] = uint32(0x100)
-	eb := eaVec[A0+Byte.eaVecOffset]
-	ew := eaVec[A0+Word.eaVecOffset]
-	el := eaVec[A0+Long.eaVecOffset]
+	eb := eaVec[A0+Byte.eaOffset]
+	ew := eaVec[A0+Word.eaOffset]
+	el := eaVec[A0+Long.eaOffset]
 
 	mb := eb.compute()
 	assert.Equal(t, uint32(0x101), cpu.A[0])
@@ -174,9 +174,9 @@ func TestEAPreDec(t *testing.T) {
 	// -(A0)
 	const A0 = (4 << 3) | 0
 
-	eb := eaVec[A0+Byte.eaVecOffset]
-	ew := eaVec[A0+Word.eaVecOffset]
-	el := eaVec[A0+Long.eaVecOffset]
+	eb := eaVec[A0+Byte.eaOffset]
+	ew := eaVec[A0+Word.eaOffset]
+	el := eaVec[A0+Long.eaOffset]
 	assert.IsType(t, &eaAddressRegisterPreDec{}, eb)
 	assert.IsType(t, &eaAddressRegisterPreDec{}, ew)
 	assert.IsType(t, &eaAddressRegisterPreDec{}, el)
@@ -203,9 +203,9 @@ func TestEAAddressRegisterWithDisplacement(t *testing.T) {
 	// xxxx(A0)
 	const A0 = (5 << 3) | 0
 
-	eb := eaVec[A0+Byte.eaVecOffset]
-	ew := eaVec[A0+Word.eaVecOffset]
-	el := eaVec[A0+Long.eaVecOffset]
+	eb := eaVec[A0+Byte.eaOffset]
+	ew := eaVec[A0+Word.eaOffset]
+	el := eaVec[A0+Long.eaOffset]
 	assert.IsType(t, &eaAddressRegisterWithDisplacement{}, eb)
 	assert.IsType(t, &eaAddressRegisterWithDisplacement{}, ew)
 	assert.IsType(t, &eaAddressRegisterWithDisplacement{}, el)

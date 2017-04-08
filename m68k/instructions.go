@@ -8,6 +8,7 @@ type instruction func(cpu *M68K) int
 
 func (cpu *M68K) init68000InstructionSet() {
 	cpu.instructions = make([]instruction, 0x10000)
+	cpu.eahandlers = initEAHandler(cpu)
 	registerMoveInstructions(cpu)
 	registerControlInstructions(cpu)
 }

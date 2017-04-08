@@ -6,7 +6,7 @@ type operand struct {
 	Msb         uint32
 	Mask        uint32
 	Ext         string
-	eaVecOffset int
+	eaOffset    int
 	formatter   string
 }
 
@@ -56,7 +56,7 @@ func (a *addressModifier) read() uint32       { return a.cpu.Read(a.o, a.address
 func (a *addressModifier) write(value uint32) { a.cpu.Write(a.o, a.address, value) }
 func (a *addressModifier) timing() int        { return a.cycle }
 
-func newEAVectors(cpu *M68K) []ea {
+func initEAHandler(cpu *M68K) []ea {
 	eaVec := make([]ea, 3*(1<<6))
 	cyclesWord := []int{0, 0, 4, 6, 6, 8, 10, 8, 12, 8, 10, 8}
 	cyclesLong := []int{0, 0, 8, 10, 10, 12, 14, 12, 16, 12, 14, 12}
@@ -66,19 +66,19 @@ func newEAVectors(cpu *M68K) []ea {
 			cycles = cyclesLong
 		}
 		for i := 0; i < 8; i++ {
-			eaVec[i+o.eaVecOffset] = &eaDataRegister{cpu, o, i}
-			eaVec[i+8+o.eaVecOffset] = &eaAddressRegister{cpu, o, i}
-			eaVec[i+16+o.eaVecOffset] = &eaAddressRegisterIndirect{&addressModifier{cpu, o, 0, cycles[2]}, i}
-			eaVec[i+24+o.eaVecOffset] = &eaAddressRegisterPostInc{&addressModifier{cpu, o, 0, cycles[3]}, i}
-			eaVec[i+32+o.eaVecOffset] = &eaAddressRegisterPreDec{&addressModifier{cpu, o, 0, cycles[4]}, i}
-			eaVec[i+40+o.eaVecOffset] = &eaAddressRegisterWithDisplacement{&addressModifier{cpu, o, 0, cycles[5]}, i}
-			eaVec[i+48+o.eaVecOffset] = &eaAddressRegisterWithIndex{&addressModifier{cpu, o, 0, cycles[6]}, i}
+			eaVec[i+o.eaOffset] = &eaDataRegister{cpu, o, i}
+			eaVec[i+8+o.eaOffset] = &eaAddressRegister{cpu, o, i}
+			eaVec[i+16+o.eaOffset] = &eaAddressRegisterIndirect{&addressModifier{cpu, o, 0, cycles[2]}, i}
+			eaVec[i+24+o.eaOffset] = &eaAddressRegisterPostInc{&addressModifier{cpu, o, 0, cycles[3]}, i}
+			eaVec[i+32+o.eaOffset] = &eaAddressRegisterPreDec{&addressModifier{cpu, o, 0, cycles[4]}, i}
+			eaVec[i+40+o.eaOffset] = &eaAddressRegisterWithDisplacement{&addressModifier{cpu, o, 0, cycles[5]}, i}
+			eaVec[i+48+o.eaOffset] = &eaAddressRegisterWithIndex{&addressModifier{cpu, o, 0, cycles[6]}, i}
 		}
-		eaVec[56+o.eaVecOffset] = &eaAbsoluteWord{&addressModifier{cpu, o, 0, cycles[7]}}
-		eaVec[57+o.eaVecOffset] = &eaAbsoluteLong{&addressModifier{cpu, o, 0, cycles[8]}}
-		eaVec[58+o.eaVecOffset] = &eaPCWithDisplacement{&addressModifier{cpu, o, 0, cycles[9]}}
-		eaVec[59+o.eaVecOffset] = &eaPCWithIndex{&addressModifier{cpu, o, 0, cycles[10]}}
-		eaVec[60+o.eaVecOffset] = &eaImmediate{&addressModifier{cpu, o, 0, cycles[11]}}
+		eaVec[56+o.eaOffset] = &eaAbsoluteWord{&addressModifier{cpu, o, 0, cycles[7]}}
+		eaVec[57+o.eaOffset] = &eaAbsoluteLong{&addressModifier{cpu, o, 0, cycles[8]}}
+		eaVec[58+o.eaOffset] = &eaPCWithDisplacement{&addressModifier{cpu, o, 0, cycles[9]}}
+		eaVec[59+o.eaOffset] = &eaPCWithIndex{&addressModifier{cpu, o, 0, cycles[10]}}
+		eaVec[60+o.eaOffset] = &eaImmediate{&addressModifier{cpu, o, 0, cycles[11]}}
 	}
 	return eaVec
 }
@@ -126,10 +126,6 @@ func (ea *eaAddressRegisterPostInc) compute() modifier {
 // 4 -(Ax)
 type eaAddressRegisterPreDec eaAddressRegisterIndirect
 
-func (ea *eaAddressRegisterPreDec) init(cpu *M68K, o *operand, register int) {
-	cpu.A[register] -= o.Size
-	ea.cpu, ea.o, ea.address = cpu, o, cpu.A[register]
-}
 func (ea *eaAddressRegisterPreDec) compute() modifier {
 	ea.cpu.A[ea.register] -= ea.o.Size
 	ea.address = ea.cpu.A[ea.register]

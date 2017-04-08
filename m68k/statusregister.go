@@ -4,10 +4,10 @@ import (
 	"fmt"
 )
 
-// M68000 Status Register
+// StatusRegister for M68000 cpu
 type StatusRegister struct {
 	C, V, Z, N, X, s, T bool
-	Interrupts          uint16
+	Interrupts          uint32
 	cpu                 *M68K
 }
 
@@ -15,8 +15,9 @@ func newStatusRegister(cpu *M68K) StatusRegister {
 	return StatusRegister{cpu: cpu}
 }
 
-func (sr *StatusRegister) Get() uint16 {
-	result := uint16(0)
+// Get the status register as a bitmap
+func (sr *StatusRegister) Get() uint32 {
+	result := uint32(0)
 	if sr.C {
 		result++
 	}
@@ -42,7 +43,8 @@ func (sr *StatusRegister) Get() uint16 {
 	return result
 }
 
-func (sr *StatusRegister) Set(value uint16) {
+// Set the status register as a bitmap
+func (sr *StatusRegister) Set(value uint32) {
 	sr.C = (value & 1) != 0
 	sr.V = (value & 2) != 0
 	sr.Z = (value & 4) != 0
@@ -53,14 +55,15 @@ func (sr *StatusRegister) Set(value uint16) {
 	sr.SetS((value & 0x2000) != 0)
 }
 
-func (sr *StatusRegister) GetCCR() uint16 {
+func (sr *StatusRegister) GetCCR() uint32 {
 	return sr.Get() & 0xff
 }
 
-func (sr *StatusRegister) SetCCR(value uint16) {
+func (sr *StatusRegister) SetCCR(value uint32) {
 	sr.Set(value & 0xff)
 }
 
+// S Get the supervisor mode flag
 func (sr *StatusRegister) S() bool {
 	return sr.s
 }
