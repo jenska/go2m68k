@@ -57,9 +57,9 @@ func TestEAAddressRegister(t *testing.T) {
 	eb := eaVec[A0+Byte.eaVecOffset]
 	ew := eaVec[A0+Word.eaVecOffset]
 	el := eaVec[A0+Long.eaVecOffset]
-	assert.IsType(t, &EAAddressRegister{}, eb)
-	assert.IsType(t, &EAAddressRegister{}, ew)
-	assert.IsType(t, &EAAddressRegister{}, el)
+	assert.IsType(t, &eaAddressRegister{}, eb)
+	assert.IsType(t, &eaAddressRegister{}, ew)
+	assert.IsType(t, &eaAddressRegister{}, el)
 
 	mb := eb.compute()
 	mw := ew.compute()
@@ -97,9 +97,9 @@ func TestEAIndirect(t *testing.T) {
 		eb := eaVec[A0+Byte.eaVecOffset]
 		ew := eaVec[A0+Word.eaVecOffset]
 		el := eaVec[A0+Long.eaVecOffset]
-		assert.IsType(t, &EAAddressRegisterIndirect{}, eb)
-		assert.IsType(t, &EAAddressRegisterIndirect{}, ew)
-		assert.IsType(t, &EAAddressRegisterIndirect{}, el)
+		assert.IsType(t, &eaAddressRegisterIndirect{}, eb)
+		assert.IsType(t, &eaAddressRegisterIndirect{}, ew)
+		assert.IsType(t, &eaAddressRegisterIndirect{}, el)
 
 		mb := eb.compute()
 		mw := ew.compute()
@@ -177,9 +177,9 @@ func TestEAPreDec(t *testing.T) {
 	eb := eaVec[A0+Byte.eaVecOffset]
 	ew := eaVec[A0+Word.eaVecOffset]
 	el := eaVec[A0+Long.eaVecOffset]
-	assert.IsType(t, &EAAddressRegisterPreDec{}, eb)
-	assert.IsType(t, &EAAddressRegisterPreDec{}, ew)
-	assert.IsType(t, &EAAddressRegisterPreDec{}, el)
+	assert.IsType(t, &eaAddressRegisterPreDec{}, eb)
+	assert.IsType(t, &eaAddressRegisterPreDec{}, ew)
+	assert.IsType(t, &eaAddressRegisterPreDec{}, el)
 
 	cpu.A[0] = 0x100
 	mb := eb.compute()
@@ -206,9 +206,9 @@ func TestEAAddressRegisterWithDisplacement(t *testing.T) {
 	eb := eaVec[A0+Byte.eaVecOffset]
 	ew := eaVec[A0+Word.eaVecOffset]
 	el := eaVec[A0+Long.eaVecOffset]
-	assert.IsType(t, &EAAddressRegisterWithDisplacement{}, eb)
-	assert.IsType(t, &EAAddressRegisterWithDisplacement{}, ew)
-	assert.IsType(t, &EAAddressRegisterWithDisplacement{}, el)
+	assert.IsType(t, &eaAddressRegisterWithDisplacement{}, eb)
+	assert.IsType(t, &eaAddressRegisterWithDisplacement{}, ew)
+	assert.IsType(t, &eaAddressRegisterWithDisplacement{}, el)
 
 	cpu.A[0] = 0x100
 	cpu.PC = 0x200

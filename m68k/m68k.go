@@ -37,7 +37,7 @@ func (cpu *M68K) Execute() int {
 	ira := cpu.PC
 	opcode := uint16(cpu.popPC(Word))
 	if instruction := cpu.instructions[opcode]; instruction != nil {
-		return instruction.execute(cpu)
+		return instruction(cpu)
 	} else {
 		glog.Errorf("Illegal instruction #$%04x at $%08x\n", opcode, ira)
 		return cpu.RaiseException(XptIll)

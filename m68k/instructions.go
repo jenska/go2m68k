@@ -4,13 +4,12 @@ import (
 	"fmt"
 )
 
-type instruction interface {
-	execute(cpu *M68K) int
-}
+type instruction func(cpu *M68K) int
 
 func (cpu *M68K) init68000InstructionSet() {
 	cpu.instructions = make([]instruction, 0x10000)
 	registerMoveInstructions(cpu)
+	registerControlInstructions(cpu)
 }
 
 func (cpu *M68K) registerInstruction(opcode int, i instruction) {

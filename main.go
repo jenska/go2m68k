@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	glog "github.com/golang/glog"
 	m68k "github.com/jenska/atari2go/m68k"
@@ -26,11 +27,24 @@ func main() {
 			address += m68k.Word.Size
 		}
 	}
-	cpu.PC = 0x1000
-	for reg := 0; reg < 8; reg++ {
-		cpu.D[reg] = 1
-		for imm := 0; imm < 256; imm++ {
-			cpu.Execute() // moveq #0, D0
+
+	cycles := 0
+
+	start := time.Now()
+	for i := 1; i < 10000; i++ {
+		cpu.PC = 0x1000
+		for reg := 0; reg < 8; reg++ {
+			for imm := 0; imm < 256; imm++ {
+				cycles += cpu.Execute() // moveq #imm, reg
+			}
 		}
 	}
+	elapsed := time.Since(start)
+	fmt.Printf("took %s to perform %d cycles\n", elapsed, cycles)
+
+	atariKiloCycleSpeed := float64(1.0) / float64(8000.0)
+	atari2goKiloCycleSpeed := elapsed.Seconds() / float64(cycles/1000)
+
+	fmt.Printf("ST %fmsec EMU %fmsec => we are %4.2f times faster",
+		atariKiloCycleSpeed, atari2goKiloCycleSpeed, atariKiloCycleSpeed/atari2goKiloCycleSpeed)
 }

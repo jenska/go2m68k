@@ -20,8 +20,7 @@ const (
 	XptTrc  = 9
 	XptLna  = 10
 	XptLnf  = 11
-
-	XPT_FPU = 13
+	XptFPU  = 13
 
 	UNINITIALIZED_INTERRUPT_VECTOR = 15
 
