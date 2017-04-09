@@ -4,17 +4,32 @@ import (
 	"fmt"
 )
 
+type disassemble func(handler AddressHandler, address uint32) *disassembledInstruction
+
+var dInstructionTable = make([]disassemble, 0x10000)
+
+func disassembler(handler AddressHandler, address uint32) *disassembledInstruction {
+	opcode := dOpcode(handler, address)
+	if disassemble := dInstructionTable[opcode]; disassemble != nil {
+		return disassemble(handler, address)
+	}
+	return &disassembledInstruction{"data.w", opcode, address, []disassembledEA{
+		disassembledEA{fmt.Sprintf("$%04x  ; (%d) unknown instruction", opcode, opcode), nil, opcode}}}
+}
+
 type disassembledInstruction struct {
-	address uint32
-	opcode  uint16
 	name    string
+	opcode  uint32
+	address uint32
 	ea      []disassembledEA
 }
 
 func (i *disassembledInstruction) size() int {
 	size := Word.Size
 	for _, a := range i.ea {
-		size += a.o.AlignedSize
+		if o := a.o; o != nil {
+			size += o.AlignedSize
+		}
 	}
 	return int(size)
 }
@@ -63,7 +78,7 @@ type disassembledEA struct {
 }
 
 type eaDisassembler interface {
-	disassemble(cpu *M68K, address uint32) disassembledEA
+	disassemble(handler *AddressHandler, address uint32) disassembledEA
 }
 
 func (ea *disassembledEA) toHex() string {
@@ -73,40 +88,40 @@ func (ea *disassembledEA) toHex() string {
 	return ""
 }
 
-func (ea *eaDataRegister) disassemble(_ *M68K, _ uint32) disassembledEA {
+func (ea *eaDataRegister) disassemble(_ AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("d%d", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegister) disassemble(_ *M68K, _ uint32) disassembledEA {
+func (ea *eaAddressRegister) disassemble(_ AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("a%d", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegisterIndirect) disassemble(_ *M68K, _ uint32) disassembledEA {
+func (ea *eaAddressRegisterIndirect) disassemble(_ AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("(a%d)", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegisterPreDec) disassemble(_ *M68K, _ uint32) disassembledEA {
+func (ea *eaAddressRegisterPreDec) disassemble(_ AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("-(a%d)", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegisterPostInc) disassemble(_ *M68K, _ uint32) disassembledEA {
+func (ea *eaAddressRegisterPostInc) disassemble(_ AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("(a%d)+", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegisterWithDisplacement) disassemble(cpu *M68K, address uint32) disassembledEA {
-	mem := cpu.Read(Word, address)
+func (ea *eaAddressRegisterWithDisplacement) disassemble(handler AddressHandler, address uint32) disassembledEA {
+	mem := dOpcode(handler, address)
 	displacement := int(uint16(mem))
 	return disassembledEA{fmt.Sprintf("$%04x(a%d)", displacement, ea.register), ea.o, mem}
 }
 
-func (ea *eaPCWithDisplacement) disassemble(cpu *M68K, address uint32) disassembledEA {
-	mem := cpu.Read(Word, address)
+func (ea *eaPCWithDisplacement) disassemble(handler AddressHandler, address uint32) disassembledEA {
+	mem := dOpcode(handler, address)
 	displacement := int(uint16(mem))
 	return disassembledEA{fmt.Sprintf("$%04x(pc)", displacement), ea.o, mem}
 }
 
-func (ea *eaAddressRegisterWithIndex) disassemble(cpu *M68K, address uint32) disassembledEA {
-	mem := cpu.Read(Word, address)
+func (ea *eaAddressRegisterWithIndex) disassemble(handler AddressHandler, address uint32) disassembledEA {
+	mem := dOpcode(handler, address)
 	displacement := int(uint8(mem))
 	reg := "%s%d."
 	if (mem & 0x8000) == 0x8000 {
@@ -122,8 +137,8 @@ func (ea *eaAddressRegisterWithIndex) disassemble(cpu *M68K, address uint32) dis
 	return disassembledEA{fmt.Sprintf("%d(a%d,%s)", displacement, ea.register, reg), ea.o, mem}
 }
 
-func (ea *eaPCWithIndex) disassemble(cpu *M68K, address uint32) disassembledEA {
-	mem := cpu.Read(Word, address)
+func (ea *eaPCWithIndex) disassemble(handler AddressHandler, address uint32) disassembledEA {
+	mem := dOpcode(handler, address)
 	displacement := int(uint8(mem))
 	reg := "%s%d."
 	if (mem & 0x8000) == 0x8000 {
@@ -139,17 +154,25 @@ func (ea *eaPCWithIndex) disassemble(cpu *M68K, address uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("%d(pc,%s)", displacement, reg), ea.o, mem}
 }
 
-func (ea *eaAbsoluteWord) disassemble(cpu *M68K, address uint32) disassembledEA {
-	mem := cpu.Read(Word, address)
+func (ea *eaAbsoluteWord) disassemble(handler AddressHandler, address uint32) disassembledEA {
+	mem := dOpcode(handler, address)
 	return disassembledEA{fmt.Sprintf("$"+Word.formatter, mem), ea.o, mem}
 }
 
-func (ea *eaAbsoluteLong) disassemble(cpu *M68K, address uint32) disassembledEA {
-	mem := cpu.Read(Long, address)
+func (ea *eaAbsoluteLong) disassemble(handler AddressHandler, address uint32) disassembledEA {
+	mem := dOpcode(handler, address)
 	return disassembledEA{fmt.Sprintf("$"+Long.formatter, mem), ea.o, mem}
 }
 
-func (ea *eaImmediate) disassemble(cpu *M68K, address uint32) disassembledEA {
-	mem := cpu.Read(ea.o, address)
+func (ea *eaImmediate) disassemble(handler AddressHandler, address uint32) disassembledEA {
+	mem := dOpcode(handler, address)
 	return disassembledEA{fmt.Sprintf("#$"+ea.o.formatter, mem), ea.o, mem}
+}
+
+func dOpcode(handler AddressHandler, address uint32) uint32 {
+	opcode, err := handler.Read(Word, address)
+	if err != nil {
+		panic(err)
+	}
+	return opcode
 }

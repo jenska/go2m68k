@@ -1,5 +1,9 @@
 package m68k
 
+import (
+	"fmt"
+)
+
 var shortExecutionTime = [][]int{{4, 4, 8, 8, 8, 12, 14, 12, 16},
 	{4, 4, 8, 8, 8, 12, 14, 12, 16}, {8, 8, 12, 12, 12, 16, 18, 16, 20},
 	{8, 8, 12, 12, 12, 16, 18, 16, 20}, {10, 10, 14, 14, 14, 18, 20, 18, 22},
@@ -20,7 +24,6 @@ var m2RTiming = []int{0, 0, 12, 12, 0, 16, 18, 16, 20, 16, 18}
 var r2MTiming = []int{0, 0, 8, 0, 8, 12, 14, 12, 16}
 
 func registerMoveInstructions(cpu *M68K) {
-	
 
 	// moveq
 	for reg := 0; reg < 8; reg++ {
@@ -42,4 +45,12 @@ func moveq(value uint32, target *uint32, sr *StatusRegister, n, z bool) int {
 	sr.N, sr.Z = n, z
 	sr.C, sr.V = false, false
 	return 4
+}
+
+func dMoveq(handler AddressHandler, address uint32) *disassembledInstruction {
+	opcode := dOpcode(handler, address)
+	dEA := []disassembledEA{
+		disassembledEA{fmt.Sprintf("#%02d", int8(opcode&0xff)), nil, 0},
+		disassembledEA{fmt.Sprintf("d%d", (opcode>>9)&7), nil, 0}}
+	return &disassembledInstruction{"moveq", opcode, address, dEA}
 }

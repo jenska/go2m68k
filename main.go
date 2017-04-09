@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	glog "github.com/golang/glog"
-	m68k "github.com/jenska/atari2go/m68k"
+	"github.com/golang/glog"
+	"github.com/jenska/atari2go/m68k"
 )
 
 func main() {

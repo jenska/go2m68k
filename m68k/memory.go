@@ -22,19 +22,19 @@ const (
 	XptLnf  = 11
 	XptFPU  = 13
 
-	UNINITIALIZED_INTERRUPT_VECTOR = 15
+	XptUnitializedInterrupt = 15
 
-	SPURIOUS_INTERRUPT           = 24
-	LEVEL_1_INTERRUPT_AUTOVECTOR = 25
-	LEVEL_2_INTERRUPT_AUTOVECTOR = 26
-	LEVEL_3_INTERRUPT_AUTOVECTOR = 27
-	LEVEL_4_INTERRUPT_AUTOVECTOR = 28
-	LEVEL_5_INTERRUPT_AUTOVECTOR = 29
-	LEVEL_6_INTERRUPT_AUTOVECTOR = 30
-	LEVEL_7_INTERRUPT_AUTOVECTOR = 31
+	XptSpuriousInterrupt = 24
+	XptLevel1Interrupt   = 25
+	XptLevel2Interrupt   = 26
+	XptLevel3Interrupt   = 27
+	XptLevel4Interrupt   = 28
+	XptLevel5Interrupt   = 29
+	XptLevel6Interrupt   = 30
+	XptLevel7Interrupt   = 31
 
-	TRAP_INSTRUCTION_VECTORS = 32
-	USER_INTERRUPT_VECTORS   = 64
+	XptTrapInstruction = 32
+	XptUserInterrupts  = 64
 )
 
 type IllegalAddressError struct {

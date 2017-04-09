@@ -1,7 +1,10 @@
 package m68k
 
+import "fmt"
+
 func registerControlInstructions(cpu *M68K) {
 	cpu.registerInstruction(0x0074, ori2ccr)
+	dInstructionTable[0x0074] = dOri2ccr
 	cpu.registerInstruction(0x00f4, ori2sr)
 	cpu.registerInstruction(0x4e75, rts)
 	cpu.registerInstruction(0x4e77, rtr)
@@ -34,6 +37,16 @@ func ori2ccr(cpu *M68K) int {
 	ccr := (cpu.popPC(Word) & 0xff) | cpu.SR.GetCCR()
 	cpu.SR.SetCCR(ccr)
 	return 8
+}
+
+func dOri2ccr(handler AddressHandler, address uint32) *disassembledInstruction {
+	opcode := dOpcode(handler, address)
+	immediate := dOpcode(handler, address+2)
+	dEA := []disassembledEA{
+		disassembledEA{fmt.Sprintf("#%02x", int8(immediate&0xff)), Byte, 0},
+		disassembledEA{"ccr", nil, 0}}
+	return &disassembledInstruction{"ori", opcode, address, dEA}
+
 }
 
 func ori2sr(cpu *M68K) int {
