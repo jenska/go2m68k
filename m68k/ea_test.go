@@ -11,14 +11,14 @@ func TestNewEAVectors(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
 	assert.NotNil(t, cpu)
 
-	eaVec := newEAVectors(cpu)
+	eaVec := initEAHandler(cpu)
 	assert.NotNil(t, eaVec)
 }
 
 func TestEADataRegister(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
 	assert.NotNil(t, cpu)
-	eaVec := newEAVectors(cpu)
+	eaVec := initEAHandler(cpu)
 	assert.NotNil(t, eaVec)
 	// reg = D0
 	eb := eaVec[0+Byte.eaOffset]
@@ -50,7 +50,7 @@ func TestEADataRegister(t *testing.T) {
 
 func TestEAAddressRegister(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := newEAVectors(cpu)
+	eaVec := initEAHandler(cpu)
 
 	// reg = A0
 	const A0 = (1 << 3) | 0
@@ -85,7 +85,7 @@ func TestEAAddressRegister(t *testing.T) {
 
 func TestEAIndirect(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := newEAVectors(cpu)
+	eaVec := initEAHandler(cpu)
 
 	peek := func(a uint32) uint32 { return cpu.Read(Byte, a) }
 
@@ -141,7 +141,7 @@ func TestEAIndirect(t *testing.T) {
 
 func TestEAPostInc(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := newEAVectors(cpu)
+	eaVec := initEAHandler(cpu)
 
 	// (A0)+
 	const A0 = (3 << 3) | 0
@@ -169,7 +169,7 @@ func TestEAPostInc(t *testing.T) {
 
 func TestEAPreDec(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := newEAVectors(cpu)
+	eaVec := initEAHandler(cpu)
 
 	// -(A0)
 	const A0 = (4 << 3) | 0
@@ -198,7 +198,7 @@ func TestEAPreDec(t *testing.T) {
 
 func TestEAAddressRegisterWithDisplacement(t *testing.T) {
 	cpu := NewM68k(NewMemoryHandler(1024))
-	eaVec := newEAVectors(cpu)
+	eaVec := initEAHandler(cpu)
 
 	// xxxx(A0)
 	const A0 = (5 << 3) | 0
