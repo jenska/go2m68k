@@ -1,21 +1,24 @@
 package m68k
 
-import (
-	"fmt"
-)
-
-type instruction func(cpu *M68K) int
+type instruction func(cpu *M68K, opcode uint16)
 
 func (cpu *M68K) init68000InstructionSet() {
+	cpu.irqMode = AutoVectorInterrut
+
 	cpu.instructions = make([]instruction, 0x10000)
-	cpu.eahandlers = initEAHandler(cpu)
-	registerMoveInstructions(cpu)
-	registerControlInstructions(cpu)
+	for i := range cpu.instructions {
+		cpu.instructions[i] = illegal
+	}
+
 }
 
-func (cpu *M68K) registerInstruction(opcode int, i instruction) {
-	if cpu.instructions[opcode] != nil {
-		panic(fmt.Errorf("failed to set opcode $%04x with %s. already used by %s", opcode, cpu.instructions[opcode], i))
+func illegal(cpu *M68K, opcode uint16) {
+	switch {
+	case opcode&0xa000 == 0xa000:
+		cpu.illegalException(LineA)
+	case opcode&0xf000 == 0xf000:
+		cpu.illegalException(LineF)
+	default:
+		cpu.illegalException(IllegalOpcode)
 	}
-	cpu.instructions[opcode] = i
 }

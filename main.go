@@ -7,12 +7,13 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/jenska/atari2go/m68k"
+	"github.com/jenska/atari2go/mem"
 )
 
 func main() {
 	flag.Parse()
 	glog.Info("Starting atari2go...")
-	m := m68k.NewMemoryHandler(1024 * 1024)
+	m := mem.NewMemoryHandler(1024 * 1024)
 	cpu := m68k.NewM68k(m)
 	cpu.SR.SetS(true)
 	fmt.Println(cpu)
@@ -35,7 +36,7 @@ func main() {
 		cpu.PC = 0x1000
 		for reg := 0; reg < 8; reg++ {
 			for imm := 0; imm < 256; imm++ {
-				cycles += cpu.Execute() // moveq #imm, reg
+				//	cycles += cpu.Execute() // moveq #imm, reg
 			}
 		}
 	}

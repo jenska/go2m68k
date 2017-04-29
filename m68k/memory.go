@@ -1,125 +1,69 @@
 package m68k
 
-import (
-	"container/list"
-	"fmt"
+// TODO Read/Write for Long operands not cycle precise
 
-	"github.com/golang/glog"
-)
-
-const (
-	XptSpr  = 0
-	XptPcr  = 1
-	XptBus  = 2
-	XptAdr  = 3
-	XptIll  = 4
-	XptDbz  = 5
-	XptChkn = 6
-	XptTrv  = 7
-	XptPrv  = 8
-	XptTrc  = 9
-	XptLna  = 10
-	XptLnf  = 11
-	XptFPU  = 13
-
-	XptUnitializedInterrupt = 15
-
-	XptSpuriousInterrupt = 24
-	XptLevel1Interrupt   = 25
-	XptLevel2Interrupt   = 26
-	XptLevel3Interrupt   = 27
-	XptLevel4Interrupt   = 28
-	XptLevel5Interrupt   = 29
-	XptLevel6Interrupt   = 30
-	XptLevel7Interrupt   = 31
-
-	XptTrapInstruction = 32
-	XptUserInterrupts  = 64
-)
-
-type IllegalAddressError struct {
-	address uint32
+func (cpu *M68K) fullPrefetch() {
+	cpu.fullPrefetchFirstStep()
+	cpu.prefetch()
 }
 
-func (e IllegalAddressError) Error() string {
-	result := fmt.Sprintf("Failed to access address %08x", e.address)
-	glog.Error(result)
+func (cpu *M68K) fullPrefetchFirstStep() {
+	cpu.statusCode.program = true
+	cpu.IRC = uint16(cpu.Read(Word, cpu.PC))
+}
+
+func (cpu *M68K) prefetch() {
+	cpu.statusCode.program = true
+	cpu.IR = cpu.IRC
+	cpu.IRC = uint16(cpu.Read(Word, cpu.PC+2))
+	cpu.IRD = cpu.IR
+	cpu.statusCode.program = false
+}
+
+func (cpu *M68K) readExtensionWord() {
+	cpu.PC += Word.Size
+	cpu.statusCode.program = true
+	cpu.IRC = uint16(cpu.Read(Word, cpu.PC))
+	cpu.statusCode.program = false
+}
+
+func (cpu *M68K) Read(o *operand, address uint32) uint32 {
+	cpu.statusCode.read = true
+	cpu.sync(2)
+	if o.Size&1 == 0 && address&1 == 1 {
+		panic(cpu.memoryException(AddressError, address, nil))
+	}
+	if v, err := cpu.memory.Read(o.Size, address&0xffffff); err != nil {
+		panic(cpu.memoryException(BusError, address, err))
+	} else {
+		cpu.sync(2)
+		return v
+	}
+}
+
+func (cpu *M68K) Write(o *operand, address uint32, value uint32) {
+	cpu.statusCode.read = false
+	cpu.sync(2)
+	if o.Size&1 == 0 && address&1 == 1 {
+		panic(cpu.memoryException(AddressError, address, nil))
+	}
+	if err := cpu.memory.Write(o.Size, address&0xffffff, value); err != nil {
+		panic(cpu.memoryException(BusError, address, err))
+	}
+}
+
+func (cpu *M68K) pushPC(o *operand, v uint32) {
+	cpu.PC -= o.Size
+	cpu.Write(o, cpu.PC, v)
+}
+
+func (cpu *M68K) popSP(o *operand) uint32 {
+	result := cpu.Read(o, cpu.A[7])
+	cpu.A[7] += o.Size
 	return result
 }
 
-type AddressHandler interface {
-	Read(o *operand, a uint32) (v uint32, err error)
-	Write(o *operand, a, v uint32) error
-	Start() uint32
-	End() uint32
-}
-
-type MemoryHandler struct {
-	ram      []uint8
-	chipsets *list.List
-}
-
-func NewMemoryHandler(size int) *MemoryHandler {
-	return &MemoryHandler{make([]uint8, size), list.New()}
-}
-
-func (mem *MemoryHandler) RegisterChipset(addressHandler AddressHandler) {
-	s1, e1 := addressHandler.Start(), addressHandler.End()
-	for e := mem.chipsets.Front(); e != nil; e = e.Next() {
-		handler := e.Value.(AddressHandler)
-		s2, e2 := handler.Start(), handler.End()
-		if (s1 >= s2 && s1 <= e2) || (e1 <= e2 && e1 >= s2) {
-			panic(fmt.Errorf("address range $%08x - $%08x already allocated by %s ($%08x - $%08x)", s1, e1, handler, s2, e2))
-		}
-	}
-	mem.chipsets.PushFront(addressHandler)
-}
-
-func (mem *MemoryHandler) Start() uint32 { return 0 }
-func (mem *MemoryHandler) End() uint32   { return uint32(len(mem.ram) - 1) }
-
-func (mem *MemoryHandler) lookup(address uint32) AddressHandler {
-	for e := mem.chipsets.Front(); e != nil; e = e.Next() {
-		handler := e.Value.(AddressHandler)
-		if handler.Start() >= address || handler.End() <= address {
-			return handler
-		}
-	}
-	return nil
-}
-
-func (mem *MemoryHandler) Read(o *operand, a uint32) (uint32, error) {
-	if int(a+o.Size) <= len(mem.ram) {
-		r := uint32(mem.ram[a])
-		switch o {
-		case Long:
-			r |= uint32(mem.ram[a+3])<<24 | uint32(mem.ram[a+2])<<16
-			fallthrough
-		case Word:
-			r |= uint32(mem.ram[a+1]) << 8
-		}
-		return r, nil
-	} else if handler := mem.lookup(a); handler != nil {
-		return handler.Read(o, a)
-	} else {
-		return 0, IllegalAddressError{a}
-	}
-}
-
-func (mem *MemoryHandler) Write(o *operand, a, v uint32) error {
-	if int(a+o.Size) <= len(mem.ram) {
-		mem.ram[a] = uint8(v)
-		switch o {
-		case Long:
-			mem.ram[a+3] = uint8(v >> 24)
-			mem.ram[a+2] = uint8(v >> 16)
-			fallthrough
-		case Word:
-			mem.ram[a+1] = uint8(v >> 8)
-		}
-		return nil
-	} else if handler := mem.lookup(a); handler != nil {
-		return handler.Write(o, a, v)
-	}
-	return IllegalAddressError{a}
+func (cpu *M68K) pushSP(o *operand, v uint32) {
+	cpu.A[7] -= o.Size
+	cpu.Write(o, cpu.A[7], v)
 }

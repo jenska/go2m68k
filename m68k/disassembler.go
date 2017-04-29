@@ -2,13 +2,15 @@ package m68k
 
 import (
 	"fmt"
+
+	"github.com/jenska/atari2go/mem"
 )
 
-type disassemble func(handler AddressHandler, address uint32) *disassembledInstruction
+type disassemble func(handler mem.AddressHandler, address uint32) *disassembledInstruction
 
 var dInstructionTable = make([]disassemble, 0x10000)
 
-func disassembler(handler AddressHandler, address uint32) *disassembledInstruction {
+func disassembler(handler mem.AddressHandler, address uint32) *disassembledInstruction {
 	opcode := dOpcode(handler, address)
 	if disassemble := dInstructionTable[opcode]; disassemble != nil {
 		return disassemble(handler, address)
@@ -78,7 +80,7 @@ type disassembledEA struct {
 }
 
 type eaDisassembler interface {
-	disassemble(handler *AddressHandler, address uint32) disassembledEA
+	disassemble(handler *mem.AddressHandler, address uint32) disassembledEA
 }
 
 func (ea *disassembledEA) toHex() string {
@@ -88,39 +90,39 @@ func (ea *disassembledEA) toHex() string {
 	return ""
 }
 
-func (ea *eaDataRegister) disassemble(_ AddressHandler, _ uint32) disassembledEA {
+func (ea *eaDataRegister) disassemble(_ mem.AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("d%d", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegister) disassemble(_ AddressHandler, _ uint32) disassembledEA {
+func (ea *eaAddressRegister) disassemble(_ mem.AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("a%d", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegisterIndirect) disassemble(_ AddressHandler, _ uint32) disassembledEA {
+func (ea *eaAddressRegisterIndirect) disassemble(_ mem.AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("(a%d)", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegisterPreDec) disassemble(_ AddressHandler, _ uint32) disassembledEA {
+func (ea *eaAddressRegisterPreDec) disassemble(_ mem.AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("-(a%d)", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegisterPostInc) disassemble(_ AddressHandler, _ uint32) disassembledEA {
+func (ea *eaAddressRegisterPostInc) disassemble(_ mem.AddressHandler, _ uint32) disassembledEA {
 	return disassembledEA{fmt.Sprintf("(a%d)+", ea.register), ea.o, 0}
 }
 
-func (ea *eaAddressRegisterWithDisplacement) disassemble(handler AddressHandler, address uint32) disassembledEA {
+func (ea *eaAddressRegisterWithDisplacement) disassemble(handler mem.AddressHandler, address uint32) disassembledEA {
 	mem := dOpcode(handler, address)
 	displacement := int(uint16(mem))
 	return disassembledEA{fmt.Sprintf("$%04x(a%d)", displacement, ea.register), ea.o, mem}
 }
 
-func (ea *eaPCWithDisplacement) disassemble(handler AddressHandler, address uint32) disassembledEA {
+func (ea *eaPCWithDisplacement) disassemble(handler mem.AddressHandler, address uint32) disassembledEA {
 	mem := dOpcode(handler, address)
 	displacement := int(uint16(mem))
 	return disassembledEA{fmt.Sprintf("$%04x(pc)", displacement), ea.o, mem}
 }
 
-func (ea *eaAddressRegisterWithIndex) disassemble(handler AddressHandler, address uint32) disassembledEA {
+func (ea *eaAddressRegisterWithIndex) disassemble(handler mem.AddressHandler, address uint32) disassembledEA {
 	mem := dOpcode(handler, address)
 	displacement := int(uint8(mem))
 	reg := "%s%d."
@@ -137,7 +139,7 @@ func (ea *eaAddressRegisterWithIndex) disassemble(handler AddressHandler, addres
 	return disassembledEA{fmt.Sprintf("%d(a%d,%s)", displacement, ea.register, reg), ea.o, mem}
 }
 
-func (ea *eaPCWithIndex) disassemble(handler AddressHandler, address uint32) disassembledEA {
+func (ea *eaPCWithIndex) disassemble(handler mem.AddressHandler, address uint32) disassembledEA {
 	mem := dOpcode(handler, address)
 	displacement := int(uint8(mem))
 	reg := "%s%d."
@@ -154,23 +156,23 @@ func (ea *eaPCWithIndex) disassemble(handler AddressHandler, address uint32) dis
 	return disassembledEA{fmt.Sprintf("%d(pc,%s)", displacement, reg), ea.o, mem}
 }
 
-func (ea *eaAbsoluteWord) disassemble(handler AddressHandler, address uint32) disassembledEA {
+func (ea *eaAbsoluteWord) disassemble(handler mem.AddressHandler, address uint32) disassembledEA {
 	mem := dOpcode(handler, address)
 	return disassembledEA{fmt.Sprintf("$"+Word.formatter, mem), ea.o, mem}
 }
 
-func (ea *eaAbsoluteLong) disassemble(handler AddressHandler, address uint32) disassembledEA {
+func (ea *eaAbsoluteLong) disassemble(handler mem.AddressHandler, address uint32) disassembledEA {
 	mem := dOpcode(handler, address)
 	return disassembledEA{fmt.Sprintf("$"+Long.formatter, mem), ea.o, mem}
 }
 
-func (ea *eaImmediate) disassemble(handler AddressHandler, address uint32) disassembledEA {
+func (ea *eaImmediate) disassemble(handler mem.AddressHandler, address uint32) disassembledEA {
 	mem := dOpcode(handler, address)
 	return disassembledEA{fmt.Sprintf("#$"+ea.o.formatter, mem), ea.o, mem}
 }
 
-func dOpcode(handler AddressHandler, address uint32) uint32 {
-	opcode, err := handler.Read(Word, address)
+func dOpcode(handler mem.AddressHandler, address uint32) uint32 {
+	opcode, err := handler.Read(Word.Size, address)
 	if err != nil {
 		panic(err)
 	}

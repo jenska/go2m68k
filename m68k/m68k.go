@@ -2,70 +2,130 @@ package m68k
 
 import (
 	"fmt"
+	"log"
 
-	"github.com/golang/glog"
+	"github.com/jenska/atari2go/mem"
+)
+
+const (
+	UserVectorInterrupt = iota
+	AutoVectorInterrut
+	Uninitialized
 )
 
 type M68K struct {
-	A        [8]uint32
-	D        [8]uint32
-	SR       StatusRegister
-	SSP, USP uint32
-	PC       uint32
+	SR           StatusRegister
+	A, D         [8]uint32
+	SSP, USP, PC uint32
+	IRC, IRD, IR uint16
 
-	memory       AddressHandler
-	eahandlers   []ea
+	// required for bus/address error stackframe
+	statusCode struct {
+		program, read, instruction bool
+	}
+
+	irqMode          int
+	irqSamplingLevel uint8
+
+	rmwCycle    bool
+	stop        bool
+	doubleFault bool
+	CycleCount  int64
+
+	memory       mem.AddressHandler
 	instructions []instruction
+	eaTable      []ea
 }
 
 // New M68k CPU instance
-func NewM68k(memory AddressHandler) *M68K {
+func NewM68k(memory mem.AddressHandler) *M68K {
 	cpu := &M68K{}
 	cpu.memory = memory
 	cpu.init68000InstructionSet()
+	cpu.initEATable()
 	cpu.SR = newStatusRegister(cpu)
-	cpu.SR.Set(0x2700)
-	cpu.A[7] = cpu.Read(Long, XptSpr<<2)
-	cpu.PC = cpu.Read(Long, XptPcr<<2)
+	cpu.Reset()
 	return cpu
 }
 
 func (cpu *M68K) Reset() {
-	// TODO reset
+	cpu.statusCode.program = false
+	cpu.statusCode.read = true
+	cpu.statusCode.instruction = true
+	cpu.irqSamplingLevel = 0
+	cpu.rmwCycle = false
+	cpu.stop = false
+	cpu.doubleFault = false
+	cpu.sync(16)
+	cpu.SR.Set(0x2700)
+	cpu.A[7] = cpu.Read(Long, 0)
+	cpu.PC = cpu.Read(Long, 4)
+	cpu.fullPrefetch()
 }
 
-func (cpu *M68K) Execute() int {
-	ira := cpu.PC
-	opcode := uint16(cpu.popPC(Word))
-	if instruction := cpu.instructions[opcode]; instruction != nil {
-		return instruction(cpu)
-	} else {
-		glog.Errorf("Illegal instruction #$%04x at $%08x\n", opcode, ira)
-		return cpu.RaiseException(XptIll)
-	}
+func (cpu *M68K) sync(cycles int64) {
+	cpu.CycleCount += cycles
 }
 
-func (cpu *M68K) RaiseException(vector uint16) int {
-	address := uint32(vector) << 2
-	cpu.pushSP(Long, cpu.PC)
-	cpu.pushSP(Word, uint32(cpu.SR.Get()))
-
-	if !cpu.SR.S() {
-		cpu.SR.SetS(true)
+func (cpu *M68K) Execute() {
+	if cpu.doubleFault {
+		cpu.sync(4)
+		return
 	}
-	cpu.SR.T = false
 
-	if address = cpu.Read(Long, address); address == 0 {
-		if address = cpu.Read(Long, XptUnitializedInterrupt<<2); address == 0 {
-			panic(fmt.Errorf("Interrupt vector not set for uninitialised interrupt vector while trapping uninitialised vector %d\n", vector))
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(exception); ok {
+				cpu.statusCode.program = false
+				cpu.statusCode.read = true
+				cpu.statusCode.instruction = true
+			} else {
+				log.Fatalf("unable to recover from unexpeced error %s", err)
+			}
 		}
-	}
+	}()
 
-	cpu.PC = address
-	return 34
+	cpu.PC += 2
+	cpu.instructions[cpu.IRD](cpu, cpu.IRD)
 }
 
-// TODO Disassemble current instruction
+func (cpu *M68K) conditionalTest(code uint32) bool {
+	switch code & 0xF {
+	case 0:
+		return true
+	case 1:
+		return false
+	case 2:
+		return !cpu.SR.C && !cpu.SR.Z
+	case 3:
+		return cpu.SR.C || cpu.SR.Z
+	case 4:
+		return !cpu.SR.C
+	case 5:
+		return cpu.SR.C
+	case 6:
+		return !cpu.SR.Z
+	case 7:
+		return cpu.SR.Z
+	case 8:
+		return !cpu.SR.V
+	case 9:
+		return cpu.SR.V
+	case 10:
+		return !cpu.SR.N
+	case 11:
+		return cpu.SR.N
+	case 12:
+		return !(cpu.SR.N != cpu.SR.V)
+	case 13:
+		return cpu.SR.N != cpu.SR.V
+	case 14:
+		return (cpu.SR.N && cpu.SR.V && !cpu.SR.Z) || (!cpu.SR.N && !cpu.SR.V && !cpu.SR.Z)
+	default:
+		return cpu.SR.Z || (cpu.SR.N && !cpu.SR.V) || (!cpu.SR.N && cpu.SR.V)
+	}
+}
+
 func (cpu *M68K) String() string {
 	d := cpu.D
 	a := cpu.A
@@ -80,45 +140,4 @@ func (cpu *M68K) String() string {
 		d[2], d[6], a[2], a[6], cpu.USP,
 		d[3], d[7], a[3], a[7], cpu.SSP,
 		disassembler(cpu.memory, cpu.PC).detailedFormat())
-}
-
-func (cpu *M68K) Read(o *operand, address uint32) uint32 {
-	address &= 0x00ffffff
-	if v, err := cpu.memory.Read(o, address); err == nil {
-		return v
-	} else {
-		// TODO raise exception
-		return 0
-	}
-}
-
-func (cpu *M68K) Write(o *operand, address uint32, value uint32) {
-	address &= 0x00ffffff
-	if err := cpu.memory.Write(o, address, value); err == nil {
-		return
-	} else {
-		// TODO raise exception
-	}
-}
-
-func (cpu *M68K) popPC(o *operand) uint32 {
-	result := cpu.Read(o, cpu.PC)
-	cpu.PC += o.Size
-	return result
-}
-
-func (cpu *M68K) pushPC(o *operand, v uint32) {
-	cpu.PC -= o.Size
-	cpu.Write(o, cpu.PC, v)
-}
-
-func (cpu *M68K) popSP(o *operand) uint32 {
-	result := cpu.Read(o, cpu.A[7])
-	cpu.A[7] += o.Size
-	return result
-}
-
-func (cpu *M68K) pushSP(o *operand, v uint32) {
-	cpu.A[7] -= o.Size
-	cpu.Write(o, cpu.A[7], v)
 }

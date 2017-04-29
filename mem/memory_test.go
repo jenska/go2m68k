@@ -1,8 +1,9 @@
-package m68k
+package mem
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMemoryHandler_Mem8(t *testing.T) {

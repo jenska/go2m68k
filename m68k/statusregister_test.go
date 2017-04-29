@@ -2,10 +2,12 @@ package m68k
 
 import (
 	"testing"
+
+	"github.com/jenska/atari2go/mem"
 )
 
 func buildStatusRegister() StatusRegister {
-	cpu := NewM68k(NewMemoryHandler(1000))
+	cpu := NewM68k(mem.NewMemoryHandler(1000))
 	return newStatusRegister(cpu)
 }
 
