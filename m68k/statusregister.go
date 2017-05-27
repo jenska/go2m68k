@@ -4,6 +4,16 @@ import (
 	"fmt"
 )
 
+const (
+	flagLogical = iota
+	flagCmp
+	flagAdd
+	flagSub
+	flagAddx
+	flagSubx
+	flagZn
+)
+
 // StatusRegister for M68000 cpu
 type StatusRegister struct {
 	C, V, Z, N, X, s, T bool
@@ -107,4 +117,56 @@ func (sr StatusRegister) String() string {
 	}
 
 	return fmt.Sprintf("%s-b%03b", result, sr.Interrupts&0x07)
+}
+
+func (sr *StatusRegister) setFlags(opcode int, o *operand, result, src, dest uint32) {
+	resN := o.isNegative(result)
+	destN := o.isNegative(dest)
+	srcN := o.isNegative(src)
+
+	switch opcode {
+	case flagLogical:
+		sr.V = false
+		sr.C = false
+		sr.Z = (o.Mask & result) == 0
+		sr.N = resN
+	case flagCmp:
+		sr.Z = (o.Mask & result) == 0
+		sr.N = resN
+		sr.C = ((result >> o.Bits) & 1) != 0
+		sr.V = (srcN != destN) && (resN != destN)
+	case flagSub, flagAdd:
+		sr.Z = (o.Mask & result) == 0
+		sr.N = resN
+		fallthrough
+	case flagSubx, flagAddx:
+		sr.C = ((result >> o.Bits) & 1) != 0
+		sr.X = sr.C
+		sr.V = (srcN != destN) && (resN != destN)
+	case flagZn:
+		sr.Z = sr.Z && (o.Mask&result) == 0
+		sr.N = resN
+	}
+}
+
+func (sr *StatusRegister) conditionalTest(code uint32) bool {
+	var condition = []func() bool{
+		func() bool { return true },
+		func() bool { return false },
+		func() bool { return !sr.C && !sr.Z },
+		func() bool { return sr.C || sr.Z },
+		func() bool { return !sr.C },
+		func() bool { return sr.C },
+		func() bool { return !sr.Z },
+		func() bool { return sr.Z },
+		func() bool { return !sr.V },
+		func() bool { return sr.V },
+		func() bool { return !sr.N },
+		func() bool { return sr.N },
+		func() bool { return !(sr.N != sr.V) },
+		func() bool { return sr.N != sr.V },
+		func() bool { return (sr.N && sr.V && !sr.Z) || (!sr.N && !sr.V && !sr.Z) },
+		func() bool { return sr.Z || (sr.N && !sr.V) || (!sr.N && sr.V) },
+	}
+	return condition[code&0x0f]()
 }

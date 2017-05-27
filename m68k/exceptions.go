@@ -1,85 +1,77 @@
 package m68k
 
-import (
-	"fmt"
-)
+type group0exception uint32
 
 const (
-	BusError           = 2
-	AddressError       = 3
-	IllegalOpcode      = 4
-	PrivilegeViolation = 8
-	LineA              = 10
-	LineF              = 11
-	None
+	BusError               group0exception = 2
+	AddressError           group0exception = 3
+	IllegalOpcode                          = 4
+	PrivilegeViolation                     = 8
+	LineA                                  = 10
+	LineF                                  = 11
+	UninitializedInterrupt                 = 15
+	SpuriousInterrupt                      = 2
+	TrapInstruction                        = 32
 )
 
-type exception struct {
-	xType   uint32
-	message string
-}
-
-type memoryException struct {
-	*exception
-	faultAddress uint32
-	rootCause    error
-}
-
-func (x *exception) Error() string {
-	return fmt.Sprintf("exception %d", x.xType)
-}
-
-func (cpu *M68K) memoryException(xType, faultAddress uint32, rootCause error) error {
-	if cpu.doubleFault {
-		return &exception{0, "another group 0 exception during last one. cpu halted"}
-	}
-
-	cpu.doubleFault = true
-	sr := cpu.SR.Get()
-
-	var status uint32
-	switch {
-	case cpu.statusCode.read:
-		status += 16
-	case !cpu.statusCode.instruction:
-		status += 8
-	case cpu.statusCode.program:
-		status += 2
-	case !cpu.statusCode.program:
-		status++
-	case (sr & 0x2000) != 0:
-		status += 4
-	}
-
-	cpu.SR.T = false
+func (cpu *M68K) raiseException(x uint32) {
+	sr := uint32(cpu.SR.Get())
 	cpu.SR.SetS(true)
+	cpu.SR.T = false // exceptions unset the trace flag
+
+	cpu.sync(6)
+	cpu.pushSP(Long, cpu.PC)
+	cpu.pushSP(Word, sr)
+
+	address := cpu.Read(Long, x<<2)
+	if address == 0 {
+		// interrupt vector is uninitialised
+		// raise a uninitialised interrupt vector exception instead
+		address = cpu.Read(Long, UninitializedInterrupt<<2)
+		if address == 0 {
+			cpu.cpuHalted(cpu)
+		}
+	}
 	cpu.sync(8)
-	cpu.pushSP(Word, status)
-	cpu.pushSP(Long, faultAddress)
-	cpu.pushSP(Word, uint32(cpu.IRD))
-	cpu.pushSP(Word, sr)
-	cpu.pushSP(Long, cpu.PC)
-	cpu.sync(2)
-	cpu.executeAt(BusError)
-	cpu.doubleFault = false
-	return &memoryException{&exception{xType, "memory exception"}, faultAddress, rootCause}
+	cpu.PC = address
 }
 
-func (cpu *M68K) illegalException(xType uint32) error {
-	sr := cpu.SR.Get()
+func (cpu *M68K) raiseIterrupt(priority uint32) {
+	if priority != 0 {
+		priority &= 0x07
+		if priority > cpu.SR.Interrupts {
+			cpu.raiseException(SpuriousInterrupt + priority)
+			cpu.SR.Interrupts = priority
+		}
+	}
+}
+
+func (cpu *M68K) raiseException0(x group0exception, faultAddress uint32) {
+	if cpu.doubleFault {
+		cpu.cpuHalted(cpu)
+	}
+	cpu.doubleFault = true
+	sr := uint32(cpu.SR.Get())
 	cpu.SR.SetS(true)
-	cpu.SR.T = false
+	cpu.SR.T = false // exceptions unset the trace flag
 
-	cpu.sync(4)
-	cpu.pushSP(Word, sr)
+	cpu.sync(8)
 	cpu.pushSP(Long, cpu.PC)
-	cpu.executeAt(xType)
-	return &exception{xType, "illegal exception"}
-}
+	cpu.pushSP(Word, sr)
+	cpu.pushSP(Long, faultAddress)
+	cpu.pushSP(Word, 2) // TODO stack frame
 
-func (cpu *M68K) executeAt(xType uint32) {
-	cpu.PC = cpu.Read(Long, xType<<2)
-	cpu.fullPrefetchFirstStep()
+	address := cpu.Read(Long, uint32(x)<<2)
+	if address == 0 {
+		// interrupt vector is uninitialised
+		// raise a uninitialised interrupt vector exception instead
+		address = cpu.Read(Long, UninitializedInterrupt<<2)
+		if address == 0 {
+			cpu.cpuHalted(cpu)
+		}
+	}
 	cpu.sync(2)
-	cpu.prefetch()
+	cpu.PC = address
+	cpu.doubleFault = false
+	panic(x)
 }

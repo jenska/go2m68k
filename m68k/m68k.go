@@ -19,18 +19,13 @@ type M68K struct {
 	SSP, USP, PC uint32
 	IRC, IRD, IR uint16
 
-	// required for bus/address error stackframe
-	statusCode struct {
-		program, read, instruction bool
-	}
+	CycleCount int64
 
 	irqMode          int
 	irqSamplingLevel uint8
 
-	rmwCycle    bool
-	stop        bool
 	doubleFault bool
-	CycleCount  int64
+	cpuHalted   func(cpu *M68K)
 
 	memory       mem.AddressHandler
 	instructions []instruction
@@ -44,18 +39,16 @@ func NewM68k(memory mem.AddressHandler) *M68K {
 	cpu.init68000InstructionSet()
 	cpu.initEATable()
 	cpu.SR = newStatusRegister(cpu)
+	cpu.cpuHalted = func(cpu *M68K) {
+		log.Fatal("Interrupt vector not set for uninitialised interrupt vector while trapping uninitialised vector")
+	}
 	cpu.Reset()
 	return cpu
 }
 
 func (cpu *M68K) Reset() {
-	cpu.statusCode.program = false
-	cpu.statusCode.read = true
-	cpu.statusCode.instruction = true
-	cpu.irqSamplingLevel = 0
-	cpu.rmwCycle = false
-	cpu.stop = false
 	cpu.doubleFault = false
+	cpu.irqSamplingLevel = 0
 	cpu.sync(16)
 	cpu.SR.Set(0x2700)
 	cpu.A[7] = cpu.Read(Long, 0)
@@ -63,67 +56,8 @@ func (cpu *M68K) Reset() {
 	cpu.fullPrefetch()
 }
 
-func (cpu *M68K) sync(cycles int64) {
-	cpu.CycleCount += cycles
-}
-
-func (cpu *M68K) Execute() {
-	if cpu.doubleFault {
-		cpu.sync(4)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			if err, ok := r.(exception); ok {
-				cpu.statusCode.program = false
-				cpu.statusCode.read = true
-				cpu.statusCode.instruction = true
-			} else {
-				log.Fatalf("unable to recover from unexpeced error %s", err)
-			}
-		}
-	}()
-
-	cpu.PC += 2
-	cpu.instructions[cpu.IRD](cpu, cpu.IRD)
-}
-
-func (cpu *M68K) conditionalTest(code uint32) bool {
-	switch code & 0xF {
-	case 0:
-		return true
-	case 1:
-		return false
-	case 2:
-		return !cpu.SR.C && !cpu.SR.Z
-	case 3:
-		return cpu.SR.C || cpu.SR.Z
-	case 4:
-		return !cpu.SR.C
-	case 5:
-		return cpu.SR.C
-	case 6:
-		return !cpu.SR.Z
-	case 7:
-		return cpu.SR.Z
-	case 8:
-		return !cpu.SR.V
-	case 9:
-		return cpu.SR.V
-	case 10:
-		return !cpu.SR.N
-	case 11:
-		return cpu.SR.N
-	case 12:
-		return !(cpu.SR.N != cpu.SR.V)
-	case 13:
-		return cpu.SR.N != cpu.SR.V
-	case 14:
-		return (cpu.SR.N && cpu.SR.V && !cpu.SR.Z) || (!cpu.SR.N && !cpu.SR.V && !cpu.SR.Z)
-	default:
-		return cpu.SR.Z || (cpu.SR.N && !cpu.SR.V) || (!cpu.SR.N && cpu.SR.V)
-	}
+func (cpu *M68K) sync(cycles uint32) {
+	cpu.CycleCount += int64(cycles)
 }
 
 func (cpu *M68K) String() string {

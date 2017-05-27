@@ -3,17 +3,19 @@ package m68k
 type operand struct {
 	Size        uint32
 	AlignedSize uint32
+	Bits        uint32
 	Msb         uint32
 	Mask        uint32
 	Ext         string
-	eaOffset    int
+	eaOffset    uint32
 	formatter   string
 }
 
 var (
-	Byte = &operand{1, 2, 0x80, 0xff, ".b", 0, "%02x"}
-	Word = &operand{2, 2, 0x8000, 0xffff, ".w", 64, "%04x"}
-	Long = &operand{4, 4, 0x80000000, 0xffffffff, ".l", 128, "%08x"}
+	Byte         = &operand{1, 2, 8, 0x80, 0xff, ".b", 0, "%02x"}
+	Word         = &operand{2, 2, 16, 0x8000, 0xffff, ".w", 64, "%04x"}
+	Long         = &operand{4, 4, 32, 0x80000000, 0xffffffff, ".l", 128, "%08x"}
+	OperandTable = []*operand{nil, Byte, Word, nil, Long}
 )
 
 func (o *operand) isNegative(value uint32) bool {
@@ -48,14 +50,14 @@ type modifier interface {
 func (cpu *M68K) initEATable() []ea {
 	eaTable := make([]ea, 3*(1<<6))
 	for _, o := range []*operand{Byte, Word, Long} {
-		for i := 0; i < 8; i++ {
-			eaTable[i+o.eaOffset] = &eaDataRegister{cpu, o, i}
-			eaTable[i+8+o.eaOffset] = &eaAddressRegister{cpu, o, i}
-			eaTable[i+16+o.eaOffset] = &eaAddressRegisterIndirect{&addressModifier{cpu, o, 0}, i}
-			eaTable[i+24+o.eaOffset] = &eaAddressRegisterPostInc{&addressModifier{cpu, o, 0}, i}
-			eaTable[i+32+o.eaOffset] = &eaAddressRegisterPreDec{&addressModifier{cpu, o, 0}, i}
-			eaTable[i+40+o.eaOffset] = &eaAddressRegisterWithDisplacement{&addressModifier{cpu, o, 0}, i}
-			eaTable[i+48+o.eaOffset] = &eaAddressRegisterWithIndex{&addressModifier{cpu, o, 0}, i}
+		for i := int(o.eaOffset); i < int(o.eaOffset)+8; i++ {
+			eaTable[i] = &eaDataRegister{cpu, o, i}
+			eaTable[i+8] = &eaAddressRegister{cpu, o, i}
+			eaTable[i+16] = &eaAddressRegisterIndirect{&addressModifier{cpu, o, 0}, i}
+			eaTable[i+24] = &eaAddressRegisterPostInc{&addressModifier{cpu, o, 0}, i}
+			eaTable[i+32] = &eaAddressRegisterPreDec{&addressModifier{cpu, o, 0}, i}
+			eaTable[i+40] = &eaAddressRegisterWithDisplacement{&addressModifier{cpu, o, 0}, i}
+			eaTable[i+48] = &eaAddressRegisterWithIndex{&addressModifier{cpu, o, 0}, i}
 		}
 		eaTable[56+o.eaOffset] = &eaAbsoluteWord{&addressModifier{cpu, o, 0}}
 		eaTable[57+o.eaOffset] = &eaAbsoluteLong{&addressModifier{cpu, o, 0}}
@@ -66,7 +68,7 @@ func (cpu *M68K) initEATable() []ea {
 	return eaTable
 }
 
-func (cpu *M68K) loadEA(o *operand, eaType int) ea {
+func (cpu *M68K) loadEA(o *operand, eaType uint32) ea {
 	return cpu.eaTable[eaType+o.eaOffset]
 }
 
