@@ -1,9 +1,5 @@
 package m68k
 
-import (
-	"fmt"
-)
-
 const (
 	flagLogical = iota
 	flagCmp
@@ -16,13 +12,8 @@ const (
 
 // StatusRegister for M68000 cpu
 type StatusRegister struct {
-	C, V, Z, N, X, s, T bool
-	Interrupts          uint32
-	cpu                 *M68K
-}
-
-func newStatusRegister(cpu *M68K) StatusRegister {
-	return StatusRegister{cpu: cpu}
+	C, V, Z, N, X, S, T1, T0, M bool
+	Interrupts                  uint32
 }
 
 // Get the status register as a bitmap
@@ -43,10 +34,16 @@ func (sr *StatusRegister) Get() uint32 {
 	if sr.X {
 		result += 16
 	}
-	if sr.s {
+	if sr.M {
+		result += 0x1000
+	}
+	if sr.S {
 		result += 0x2000
 	}
-	if sr.T {
+	if sr.T0 {
+		result += 0x4000
+	}
+	if sr.T1 {
 		result += 0x8000
 	}
 	result += ((sr.Interrupts & 7) << 8)
@@ -60,9 +57,11 @@ func (sr *StatusRegister) Set(value uint32) {
 	sr.Z = (value & 4) != 0
 	sr.N = (value & 8) != 0
 	sr.X = (value & 16) != 0
-	sr.T = (value & 0x8000) != 0
+	sr.M = (value & 0x1000) != 0
+	sr.S = (value & 0x2000) != 0
+	sr.T0 = (value & 0x4000) != 0
+	sr.T1 = (value & 0x8000) != 0
 	sr.Interrupts = (value & 0x0700) >> 8
-	sr.SetS((value & 0x2000) != 0)
 }
 
 func (sr *StatusRegister) GetCCR() uint32 {
@@ -71,52 +70,6 @@ func (sr *StatusRegister) GetCCR() uint32 {
 
 func (sr *StatusRegister) SetCCR(value uint32) {
 	sr.Set(value & 0xff)
-}
-
-// S Get the supervisor mode flag
-func (sr *StatusRegister) S() bool {
-	return sr.s
-}
-
-func (sr *StatusRegister) SetS(value bool) {
-	if sr.s {
-		sr.cpu.SSP = sr.cpu.A[7]
-	} else {
-		sr.cpu.USP = sr.cpu.A[7]
-	}
-	sr.s = value
-	if sr.s {
-		sr.cpu.A[7] = sr.cpu.SSP
-	} else {
-		sr.cpu.A[7] = sr.cpu.USP
-	}
-}
-
-func (sr StatusRegister) String() string {
-	result := []byte{'-', '-', '-', '-', '-', '-', '-'}
-	if sr.T {
-		result[0] = 'T'
-	}
-	if sr.s {
-		result[1] = 'S'
-	}
-	if sr.X {
-		result[2] = 'X'
-	}
-	if sr.N {
-		result[3] = 'N'
-	}
-	if sr.Z {
-		result[4] = 'Z'
-	}
-	if sr.V {
-		result[5] = 'V'
-	}
-	if sr.C {
-		result[6] = 'C'
-	}
-
-	return fmt.Sprintf("%s-b%03b", result, sr.Interrupts&0x07)
 }
 
 func (sr *StatusRegister) setFlags(opcode int, o *operand, result, src, dest uint32) {
@@ -128,23 +81,23 @@ func (sr *StatusRegister) setFlags(opcode int, o *operand, result, src, dest uin
 	case flagLogical:
 		sr.V = false
 		sr.C = false
-		sr.Z = (o.Mask & result) == 0
+		sr.Z = (o.mask & result) == 0
 		sr.N = resN
 	case flagCmp:
-		sr.Z = (o.Mask & result) == 0
+		sr.Z = (o.mask & result) == 0
 		sr.N = resN
-		sr.C = ((result >> o.Bits) & 1) != 0
+		sr.C = ((result >> o.bits) & 1) != 0
 		sr.V = (srcN != destN) && (resN != destN)
 	case flagSub, flagAdd:
-		sr.Z = (o.Mask & result) == 0
+		sr.Z = (o.mask & result) == 0
 		sr.N = resN
 		fallthrough
 	case flagSubx, flagAddx:
-		sr.C = ((result >> o.Bits) & 1) != 0
+		sr.C = ((result >> o.bits) & 1) != 0
 		sr.X = sr.C
 		sr.V = (srcN != destN) && (resN != destN)
 	case flagZn:
-		sr.Z = sr.Z && (o.Mask&result) == 0
+		sr.Z = sr.Z && (o.mask&result) == 0
 		sr.N = resN
 	}
 }

@@ -1,63 +1,25 @@
 package m68k
 
-// TODO Read/Write for Long operands not cycle precise
+/* Memory interface to implement read/write functions called by the CPU.
+ * while values used are 32 bits, only the appropriate number
+ * of bits are relevant (i.e. in write_memory_8, only the lower 8 bits
+ * of value should be written to memory).
+ */
+type Memory interface {
+	/* Read from anywhere */
+	ReadMemoryByte(address Address) Byte
+	ReadMemoryWord(address Address) Word
+	ReadMemoryLong(address Address) Long
 
-func (cpu *M68K) fullPrefetch() {
-	cpu.fullPrefetchFirstStep()
-	cpu.prefetch()
+	/* Write to anywhere */
+	WriteMemoryByte(address Address, value Byte)
+	WriteMemoryWord(address Address, value Word)
+	WriteMemoryLong(uaddress Address, value Long)
 }
 
-func (cpu *M68K) fullPrefetchFirstStep() {
-	cpu.IRC = uint16(cpu.Read(Word, cpu.PC))
-}
-
-func (cpu *M68K) prefetch() {
-	cpu.IR = cpu.IRC
-	cpu.IRC = uint16(cpu.Read(Word, cpu.PC+2))
-	cpu.IRD = cpu.IR
-}
-
-func (cpu *M68K) readExtensionWord() {
-	cpu.PC += Word.Size
-	cpu.IRC = uint16(cpu.Read(Word, cpu.PC))
-}
-
-func (cpu *M68K) Read(o *operand, address uint32) uint32 {
-	cpu.sync(2)
-	if o.Size&1 == 0 && address&1 == 1 {
-		cpu.raiseException0(AddressError, address)
-	}
-
-	v, err := cpu.memory.Read(o.Size, address&0xffffff)
-	if err != nil {
-		cpu.raiseException0(BusError, address)
-	}
-	cpu.sync(2)
-	return v
-}
-
-func (cpu *M68K) Write(o *operand, address uint32, value uint32) {
-	cpu.sync(2)
-	if o.Size&1 == 0 && address&1 == 1 {
-		cpu.raiseException0(AddressError, address)
-	}
-	if err := cpu.memory.Write(o.Size, address&0xffffff, value); err != nil {
-		cpu.raiseException0(BusError, address)
-	}
-}
-
-func (cpu *M68K) pushPC(o *operand, v uint32) {
-	cpu.PC -= o.Size
-	cpu.Write(o, cpu.PC, v)
-}
-
-func (cpu *M68K) popSP(o *operand) uint32 {
-	result := cpu.Read(o, cpu.A[7])
-	cpu.A[7] += o.Size
-	return result
-}
-
-func (cpu *M68K) pushSP(o *operand, v uint32) {
-	cpu.A[7] -= o.Size
-	cpu.Write(o, cpu.A[7], v)
+/* Memory access for the disassembler */
+type DisassemblerMemroy interface {
+	ReadMemoryByte(address Address) Byte
+	ReadMemoryWord(address Address) Word
+	ReadMemoryLong(address Address) Long
 }
