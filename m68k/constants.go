@@ -12,8 +12,7 @@ type (
 	Register  uint8
 )
 
-//go:generate golang/x/tools/cmd/stringer -type=CPUType
-/* CPU types for use in setCpuType() */
+//go:generate stringer -type=CPUType
 const (
 	CPUTypeInvalid CPUType = iota
 	CPUType68000
@@ -25,6 +24,7 @@ const (
 /* There are 7 levels of interrupt to the 68K.
  * A transition from < 7 to 7 will cause a non-maskable interrupt (NMI).
  */
+//go:generate stringer -type=IRQ
 const (
 	IRQNone IRQ = iota
 	IRQ1
@@ -37,6 +37,7 @@ const (
 )
 
 /* Registers used by getReg() and setReg() */
+//go:generate stringer -type=Register
 const (
 	/* Real registers */
 	RegD0 Register = iota /* Data registers */
@@ -84,6 +85,7 @@ const (
  * Use these as special returns from the interrupt acknowledge callback
  * (specified later in this header).
  */
+//go:generate stringer -type=IntVector
 const (
 	/* Causes an interrupt autovector (0x18 + interrupt level) to be taken.
 	 * This happens in a real 68K if VPA or AVEC is asserted during an interrupt
