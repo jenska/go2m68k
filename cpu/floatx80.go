@@ -19,6 +19,12 @@ const (
 )
 
 const (
+	// Software IEC/IEEE floating-point underflow tininess-detection mode.
+	floatTininessAfterRounding = iota
+	floatTininessBeforeRounding
+)
+const (
+	// Software IEC/IEEE floating-point exception flags.
 	floatFlagInvalid = 1 << iota
 	floatFlagDenormal
 	floatFlagDivbyzero
@@ -39,6 +45,7 @@ var (
 	floatx80NaN         = floatx80{0x7FFF, 1}
 	floatRoundingMode   = floatRoundNearestEven
 	floatExceptionFlags = floatFlagInvalid
+	floatDetectTininess = floatTininessAfterRounding
 )
 
 // *********************** converters **********************************
@@ -102,7 +109,7 @@ func (a floatx80) toInt32() int32 {
 	aFrac := a.low
 	aExp := a.high & 0x7fff
 	aSign := (a.high & 0x8000) != 0
-	if aExp == 0x07fff && (aFrac&0x8000000000000000) != 0 {
+	if aExp == 0x7fff && (aFrac&0x7FFFFFFFFFFFFFFF) != 0 {
 		aSign = false
 	}
 	shiftCount := 0x4037 - aExp
@@ -113,30 +120,73 @@ func (a floatx80) toInt32() int32 {
 }
 
 func (a floatx80) toInt32RoundToZero() int32 {
+	var z int32
+
+	aFrac := a.low
+	aExp := a.high & 0x7fff
+	aSign := (a.high & 0x8000) != 0
+
+	if 0x401E < aExp {
+		if (aExp == 0x7FFF) && (aFrac<<1 != 0) {
+			aSign = false
+		}
+		floatExceptionFlags |= floatFlagInvalid
+		if aSign {
+			return math.MinInt32
+		}
+		return math.MaxInt32
+	} else if aExp < 0x3FFF {
+		if aExp != 0 || aFrac != 0 {
+			floatExceptionFlags |= floatFlagInexact
+		}
+		return 0
+	}
+	shiftCount := 0x403E - aExp
+	savedASig := aFrac
+	aFrac >>= shiftCount
+	z = int32(aFrac)
+	if aSign {
+		z = -z
+	}
+	if (z < 0) != aSign {
+		floatExceptionFlags |= floatFlagInvalid
+		if aSign {
+			return math.MinInt32
+		}
+		return math.MaxInt32
+	}
+	if (aFrac << shiftCount) != savedASig {
+		floatExceptionFlags |= floatFlagInexact
+	}
+	return z
+}
+
+func (a floatx80) toFloat32() float32 {
+	aFrac := a.low
+	aExp := a.high & 0x7fff
+	aSign := (a.high & 0x8000) != 0
+	if aExp == 0x7FFF {
+		if (aFrac & 0x7FFFFFFFFFFFFFFF) != 0 {
+			return math.Float32frombits(0x7F000001)
+		}
+		return packFloat32(aSign, 0xFF, 0)
+	}
+	aFrac = shift64RightJamming(aFrac, 33)
+	if aExp != 0 || aFrac != 0 {
+		aExp -= 0x3F81
+	}
+	return roundAndPackFloat32(aSign, aExp, aFrac)
+}
+
+func (a floatx80) toFloat32RoundToZero() float32 {
 	return 0
 }
 
-func floatx80ToInt64(a floatx80) int64 {
+func (a floatx80) toFloat64() float64 {
 	return 0
 }
 
-func floatx80ToInt64RoundToZero(a floatx80) int64 {
-	return 0
-}
-
-func floatx80ToFloat32(a floatx80) float32 {
-	return 0
-}
-
-func floatx80ToFloat32RoundToZero(a floatx80) float32 {
-	return 0
-}
-
-func floatx80ToFloat64(a floatx80) float64 {
-	return 0
-}
-
-func floatx80ToFloat64RoundToZero(a floatx80) float64 {
+func (a floatx80) toFloat64RoundToZero() float64 {
 	return 0
 }
 
@@ -175,6 +225,14 @@ func packFloatx80(zSign bool, zExp uint16, zSig uint64) floatx80 {
 	return floatx80{zExp, zSig}
 }
 
+func packFloat32(zSign bool, zExp uint16, zFrac uint64) float32 {
+	f := math.Float32frombits(uint32(zExp)<<23 + uint32(zFrac))
+	if zSign {
+		return -f
+	}
+	return f
+}
+
 func shift64RightJamming(a uint64, count uint16) uint64 {
 	var z uint64
 
@@ -193,6 +251,25 @@ func shift64RightJamming(a uint64, count uint16) uint64 {
 		}
 	}
 	return z
+}
+
+func shift32RightJamming(a uint64, count int16) uint32 {
+	var z uint32
+	if count == 0 {
+		z = uint32(a)
+	} else if count < 32 {
+		if (a << ((-count) & 31)) != 0 {
+			z |= 1
+		}
+	} else {
+		if a != 0 {
+			z = 1
+		} else {
+			z = 0
+		}
+	}
+	return z
+
 }
 
 func roundAndPackInt32(zSign bool, absZ uint64) int32 {
@@ -221,8 +298,6 @@ func roundAndPackInt32(zSign bool, absZ uint64) int32 {
 	absZ = (absZ + roundIncrement) >> 7
 	if ((roundBits ^ 0x40) == 0) && roundNearestEven {
 		absZ &= 0xfffffffffffffffe
-	} else {
-		absZ &= 1
 	}
 	z = int32(absZ)
 	if zSign {
@@ -231,12 +306,65 @@ func roundAndPackInt32(zSign bool, absZ uint64) int32 {
 	if absZ>>32 != 0 || (z != 0 && (z < 0) != zSign) {
 		floatExceptionFlags |= floatFlagInvalid
 		if zSign {
-			return -2147483648
+			return math.MinInt32
 		}
-		return 0x7FFFFFFF
+		return math.MaxInt32
 	}
 	if roundBits != 0 {
 		floatExceptionFlags |= floatFlagInexact
 	}
 	return z
+}
+
+func roundAndPackFloat32(zSign bool, zExp uint16, zFrac uint64) float32 {
+	roundingMode := floatRoundingMode
+	roundNearestEven := roundingMode == floatRoundNearestEven
+	roundIncrement := uint64(0x40)
+	if !roundNearestEven {
+		if roundingMode == floatRoundtoZero {
+			roundIncrement = 0
+		} else {
+			roundIncrement = 0x7F
+			if zSign {
+				if roundingMode == floatRoundup {
+					roundIncrement = 0
+				}
+			} else {
+				if roundingMode == floatRounddown {
+					roundIncrement = 0
+				}
+			}
+		}
+	}
+	roundBits := zFrac & 0x7F
+	if 0xFD <= zExp {
+		if 0xFD < zExp || (zExp == 0xFD && (zFrac+roundIncrement) < 0) {
+			floatExceptionFlags |= floatFlagOverflow | floatFlagInexact
+			if roundIncrement == 0 {
+				return packFloat32(zSign, 0xFF, 0) - 1
+			}
+			return packFloat32(zSign, 0xFF, 0)
+		}
+		if zExp < 0 {
+			isTiny := (floatDetectTininess == floatTininessBeforeRounding) || (zExp < -1) || (zFrac+roundIncrement < 0x80000000)
+			zFrac = shift32RightJamming(zFrac, -zExp)
+			zExp = 0
+			roundBits = zFrac & 0x7F
+			if isTiny && roundBits != 0 {
+				floatExceptionFlags |= floatFlagUnderflow
+			}
+		}
+	}
+	if roundBits != 0 {
+		floatExceptionFlags |= floatFlagInexact
+	}
+	zFrac = (zFrac + roundIncrement) >> 7
+	if ((roundBits ^ 0x40) == 0) && roundNearestEven {
+		zFrac &= 0xfffffffffffffffe
+	}
+	if zFrac == 0 {
+		zExp = 0
+	}
+	return packFloat32(zSign, zExp, zFrac)
+
 }
