@@ -190,6 +190,71 @@ func (a floatx80) toFloat64RoundToZero() float64 {
 	return 0
 }
 
+// *********************** operators ********************************
+
+func add(a, b floatx80) floatx80 {
+	aSign := (a.high & 0x8000) != 0
+	bSign := (b.high & 0x8000) != 0
+	if aSign == bSign {
+		return _addFloatx80Sigs(a, b, aSign)
+	}
+	return _subFloatx80Sigs(a, b, aSign)
+}
+func _addFloatx80Sigs(a, b floatx80, zSign bool) floatx80 {
+	aFrac := a.low
+	aExp := a.high & 0x7fff
+	bFrac := b.low
+	bExp := b.high & 0x7fff
+	expDiff := aExp - bExp
+	if ( 0 < expDiff ) {
+		if ( aExp == 0x7FFF ) {
+			if ( (bits64) ( aSig<<1 ) ) return propagateFloatx80NaN( a, b );
+			return a;
+		}
+		if ( bExp == 0 ) --expDiff;
+		shift64ExtraRightJamming( bSig, 0, expDiff, &bSig, &zSig1 );
+		zExp = aExp;
+	}
+	else if ( expDiff < 0 ) {
+		if ( bExp == 0x7FFF ) {
+			if ( (bits64) ( bSig<<1 ) ) return propagateFloatx80NaN( a, b );
+			return packFloatx80( zSign, 0x7FFF, LIT64( 0x8000000000000000 ) );
+		}
+		if ( aExp == 0 ) ++expDiff;
+		shift64ExtraRightJamming( aSig, 0, - expDiff, &aSig, &zSig1 );
+		zExp = bExp;
+	}
+	else {
+		if ( aExp == 0x7FFF ) {
+			if ( (bits64) ( ( aSig | bSig )<<1 ) ) {
+				return propagateFloatx80NaN( a, b );
+			}
+			return a;
+		}
+		zSig1 = 0;
+		zSig0 = aSig + bSig;
+		if ( aExp == 0 ) {
+			normalizeFloatx80Subnormal( zSig0, &zExp, &zSig0 );
+			goto roundAndPack;
+		}
+		zExp = aExp;
+		goto shiftRight1;
+	}
+	zSig0 = aSig + bSig;
+	if ( (sbits64) zSig0 < 0 ) goto roundAndPack;
+	shiftRight1:
+	shift64ExtraRightJamming( zSig0, zSig1, 1, &zSig0, &zSig1 );
+	zSig0 |= LIT64( 0x8000000000000000 );
+	++zExp;
+	roundAndPack:
+	return
+		roundAndPackFloatx80(
+			floatx80_rounding_precision, zSign, zExp, zSig0, zSig1 );
+}
+
+func _subFloatx80Sigs(a, b floatx80, zSign bool) floatx80 {
+}
+
 /*
 floatx80 floatx80_round_to_int( floatx80 );
 floatx80 floatx80_add( floatx80, floatx80 );
@@ -258,7 +323,7 @@ func shift32RightJamming(a uint64, count int16) uint32 {
 	if count == 0 {
 		z = uint32(a)
 	} else if count < 32 {
-		if (a << ((-count) & 31)) != 0 {
+		if (a << uint64((-count)&31)) != 0 {
 			z |= 1
 		}
 	} else {
@@ -346,8 +411,8 @@ func roundAndPackFloat32(zSign bool, zExp uint16, zFrac uint64) float32 {
 			return packFloat32(zSign, 0xFF, 0)
 		}
 		if zExp < 0 {
-			isTiny := (floatDetectTininess == floatTininessBeforeRounding) || (zExp < -1) || (zFrac+roundIncrement < 0x80000000)
-			zFrac = shift32RightJamming(zFrac, -zExp)
+			isTiny := (floatDetectTininess == floatTininessBeforeRounding) || (zFrac+roundIncrement < 0x80000000)
+			zFrac = uint64(shift32RightJamming(zFrac, -int16(zExp)))
 			zExp = 0
 			roundBits = zFrac & 0x7F
 			if isTiny && roundBits != 0 {
