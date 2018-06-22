@@ -13,18 +13,18 @@ const (
 const (
 	// Software IEC/IEEE floating-point rounding mode.
 	floatRoundNearestEven = iota
-	floatRoundtoZero   
-	floatRounddown       
-	floatRoundup       
+	floatRoundtoZero
+	floatRounddown
+	floatRoundup
 )
 
 const (
-	floatFlaginvalid = 1<<iota
-	floatFlagDenormal 
-	floatFlagDivbyzero 
-	 floatFlagOverflow 
-	 floatFlagUnderflow 
-	  floatFlagInexact 
+	floatFlagInvalid = 1 << iota
+	floatFlagDenormal
+	floatFlagDivbyzero
+	floatFlagOverflow
+	floatFlagUnderflow
+	floatFlagInexact
 )
 
 type (
@@ -36,9 +36,9 @@ type (
 )
 
 var (
-	floatx80NaN = floatx80{0x7FFF, 1}
-	floatRoundingMode = floatRoundNearestEven
-	floatExceptionFlags = floatFlaginvalid
+	floatx80NaN         = floatx80{0x7FFF, 1}
+	floatRoundingMode   = floatRoundNearestEven
+	floatExceptionFlags = floatFlagInvalid
 )
 
 // *********************** converters **********************************
@@ -195,49 +195,48 @@ func shift64RightJamming(a uint64, count uint16) uint64 {
 	return z
 }
 
-func roundAndPackInt32(  zSign bool, absZ uint64) int32 {
+func roundAndPackInt32(zSign bool, absZ uint64) int32 {
 	var z int32
 
 	roundingMode := floatRoundingMode
-	roundNearestEven := roundingMode == floatRoundNearestEven;
-	roundIncrement := uint64(0x40);
-	if ! roundNearestEven {
+	roundNearestEven := roundingMode == floatRoundNearestEven
+	roundIncrement := uint64(0x40)
+	if !roundNearestEven {
 		if roundingMode == floatRoundtoZero {
-			roundIncrement = 0;
-		}  else {
-			roundIncrement = 0x7F;
-			if ( zSign ) {
+			roundIncrement = 0
+		} else {
+			roundIncrement = 0x7F
+			if zSign {
 				if roundingMode == floatRoundup {
 					roundIncrement = 0
 				}
 			} else {
-				if roundingMode == floatRounddown{
-					  roundIncrement = 0
+				if roundingMode == floatRounddown {
+					roundIncrement = 0
 				}
 			}
 		}
 	}
 	roundBits := absZ & 0x7F
-	absZ = ( absZ + roundIncrement )>>7
-	absZ &= ~ ( ( ( roundBits ^ 0x40 ) == 0 ) & roundNearestEven )
-	z = int32(absZ)
-	if  zSign {  
-		z = - z
+	absZ = (absZ + roundIncrement) >> 7
+	if ((roundBits ^ 0x40) == 0) && roundNearestEven {
+		absZ &= 0xfffffffffffffffe
+	} else {
+		absZ &= 1
 	}
-	if  absZ>>32 || z && ( ( z < 0 ) ^ zSign )  {
-		floatRaise( floatFlaginvalid );
+	z = int32(absZ)
+	if zSign {
+		z = -z
+	}
+	if absZ>>32 != 0 || (z != 0 && (z < 0) != zSign) {
+		floatExceptionFlags |= floatFlagInvalid
 		if zSign {
 			return -2147483648
-		} else {
-			return 0x7FFFFFFF
 		}
+		return 0x7FFFFFFF
 	}
-	if  roundBits!=0 {
+	if roundBits != 0 {
 		floatExceptionFlags |= floatFlagInexact
 	}
-	return z;
-}
-
-func floatRaise( floatFlag int ) {
-
+	return z
 }
