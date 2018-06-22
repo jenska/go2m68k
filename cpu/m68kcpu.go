@@ -4,6 +4,7 @@ import (
 	"github.com/jenska/atari2go/mem"
 )
 
+//go:generate go run generator/m68kmake.go -i m68kin -o m68kops.go
 type m68000Base struct {
 	hasFPU  bool // Indicates if a FPU is available (yes on 030, 040, may be on 020)
 	cpuType CPUType
@@ -93,10 +94,10 @@ type M68K interface {
 	postload()
 	clearAll()
 
-	createDisassembler() *dasm // CPUType dependend disassembler
+	// createDisassembler() *dasm // CPUType dependend disassembler
 
 }
 
 func InitM68K(cpuType CPUType) *M68K {
-
+	return nil
 }
