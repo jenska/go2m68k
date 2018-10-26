@@ -72,6 +72,7 @@ func (sr *StatusRegister) SetCCR(value uint32) {
 	sr.Set(value & 0xff)
 }
 
+// TODO: return func(result, src, dest int)
 func (sr *StatusRegister) setFlags(opcode int, o *Operand, result, src, dest int) {
 	resN := o.IsNegative(result)
 	destN := o.IsNegative(dest)

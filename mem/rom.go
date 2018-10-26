@@ -2,13 +2,13 @@ package mem
 
 import "github.com/jenska/atari2go/cpu"
 
-func NewROM(start Address, rom []byte, size uint) AddressArea {
-	end := start + Address(size)
+func NewROM(start cpu.Address, rom []byte) AddressArea {
+	end := start + cpu.Address(len(rom))
 
 	return AddressArea{
 		start: start,
 		end:   end,
-		read: func(address Address, operand *cpu.Operand) (int, error) {
+		read: func(address cpu.Address, operand *cpu.Operand) (int, error) {
 			if address >= start && address < end {
 				return operand.Read(rom, uint(address-start)), nil
 			}
