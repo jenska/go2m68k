@@ -2,63 +2,70 @@ package mem
 
 /// operands
 
-type operandType struct {
+type Operand struct {
     name string
     short string
     size int
     mask uint
+    msb uint
 }
 
 var (
-    Byte = &operandType{name: "Byte", short: ".b", size: 1, mask: 0xff}
-    Word = &operandType{name: "Word", short: ".w", size: 2, mask: 0xffff}
-    Long = &operandType{name: "Long", short: ".l", size: 4, mask: 0xffffffff}
+    Byte = &Operand{name: "Byte", short: ".b", size: 1, mask: 0x000000ff, msb: 0x00000080}
+    Word = &Operand{name: "Word", short: ".w", size: 2, mask: 0x0000ffff, msb: 0x00008000}
+    Long = &Operand{name: "Long", short: ".l", size: 4, mask: 0xffffffff, msb: 0x80000000}
 )
+
+func (o *Operand) write( slice []byte, index uint, value int) {
+}
+
+func (o *Operand) read( slice []byte, index uint) int {
+    return 0
+}
+
 
 /// addresses
 
 type (
     Address uint32
-    Reader func(Address, *operandType) (int, error)
-    Writer func(Address, *operandType, int) error
+    MemoryReader func(Address, *Operand) (int, error)
+    MemoryWriter func(Address, *Operand, int) error
     
     AddressBus interface {
-        read(address Address, operand *operandType ) (int, error)
-        write(address Address, operand *operandType, value int) error
+        read(address Address, operand *Operand ) (int, error)
+        write(address Address, operand *Operand, value int) error
     }
     
-    AddressBlock struct {
+    AddressArea struct {
         start Address
         end Address
-        read Reader
-        write Writer
+        read MemoryReader
+        write MemoryWriter
+    }
+
+    addressMap struct {
+        areas []AddressArea
+        cache *AddressArea
     }
 )
 
-
-
-type addressMap struct {
-    blocks []*AddressBlock
-    cache *AddressBlock
-}
-
-func (a addressMap) findAddressBlock(address Address) *AddressBlock {
+func (a *addressMap) findAddressArea(address Address) *AddressArea {
     if address >= a.cache.start && address < a.cache.end {
         return a.cache
     }
-    for _, block := range a.blocks {
-        if address >= block.start && address < block.end {
-            a.cache = block
-            return block
+    for _, area := range a.areas {
+        if address >= area.start && address < area.end {
+            a.cache = &area
+            return &area
         }
     }
     return nil
 }
 
-func (a addressMap) read(address Address, operand *operandType) (int, error) {
-    if block := a.findAddressBlock(address); block != nil {
-        if read := block.read; read != nil {
-            return read(address, operand)
+func (a *addressMap) read(address Address, operand *Operand) (int, error) {
+    if area := a.findAddressArea(address); area != nil {
+        if read := area.read; read != nil {
+            return area.read(address, operand)
         } else {
             return 0, AddressError(address)
         }
@@ -66,10 +73,10 @@ func (a addressMap) read(address Address, operand *operandType) (int, error) {
     return 0, BusError(address)
 }
 
-func (a addressMap) write(address Address, operand *operandType, value int) error {
-    if block := a.findAddressBlock(address); block != nil {
-        if write := block.write; write != nil {
-            return write(address, operand, value)
+func (a *addressMap) write(address Address, operand *Operand, value int) error {
+    if area := a.findAddressArea(address); area != nil {
+        if write := area.write; write != nil {
+            return area.write(address, operand, value)
         } else {
             return AddressError(address)
         }
@@ -78,20 +85,6 @@ func (a addressMap) write(address Address, operand *operandType, value int) erro
 }
 
 
-func NewAddressBus(blocks ...*AddressBlock) AddressBus {
-    return addressMap{blocks: blocks, cache: blocks[0]}
+func NewAddressBus(areas ...AddressArea) AddressBus {
+    return &addressMap{areas: areas, cache: &areas[0]}
 }
-
-type ram struct {
-    AddressBlock
-    mem []byte
-}
-
-func NewRAM(start, length uint) AddressBlock {
-    return ram{
-        start: start,
-        end: start + length,
-        mem: [length]byte,
-    }
-}
-
