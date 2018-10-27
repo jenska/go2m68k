@@ -37,6 +37,5 @@ func TestNewAddressBus(t *testing.T) {
 	v, err = ab.Read(1500, cpu.Byte)
 	print(reflect.TypeOf(err))
 	assert.IsType(t, err, BusError(0))
-	assert.Equal(t, err, cpu.Address(1500))
-
+	assert.Equal(t, cpu.Address(err.(BusError)), cpu.Address(1500))
 }

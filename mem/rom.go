@@ -10,7 +10,7 @@ func NewROM(start cpu.Address, rom []byte) AddressArea {
 		end:   end,
 		read: func(address cpu.Address, operand *cpu.Operand) (int, error) {
 			if address >= start && address < end {
-				return operand.Read(rom, uint(address-start)), nil
+				return operand.Read(rom[address-start:]), nil
 			}
 			return 0, BusError(address)
 		},

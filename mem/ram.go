@@ -11,14 +11,15 @@ func NewRAM(start cpu.Address, size uint) AddressArea {
 		end:   end,
 		write: func(address cpu.Address, operand *cpu.Operand, value int) error {
 			if address >= start && address < end {
-				operand.Write(ram[:], uint(address-start), value)
+				operand.Write(ram[address-start:], value)
 				return nil
 			}
 			return BusError(address)
 		},
 		read: func(address cpu.Address, operand *cpu.Operand) (int, error) {
 			if address >= start && address < end {
-				return operand.Read(ram[:], uint(address-start)), nil
+
+				return operand.Read(ram[address-start:]), nil
 			}
 			return 0, BusError(address)
 		},
