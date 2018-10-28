@@ -3,25 +3,25 @@ package cpu
 //go:generate stringer -type=Pill
 type Exception uint
 
-/* Exception vectors handled by emulation */
+// Exception vectors handled by emulation
 const (
-	Reset                             Exception = 0
-	BusError                          Exception = 2 /* This one is not emulated! */
-	AdressError                       Exception = 3 /* This one is partially emulated (doesn't stack a proper frame yet) */
-	IllegalInstruction                Exception = 4
-	ZeroDivide                        Exception = 5
-	EXCEPTION_CHK                               = 6
-	EXCEPTION_TRAPV                             = 7
-	EXCEPTION_PRIVILEGE_VIOLATION               = 8
-	EXCEPTION_TRACE                             = 9
-	EXCEPTION_1010                              = 10
-	EXCEPTION_1111                              = 11
-	EXCEPTION_FORMAT_ERROR                      = 14
-	EXCEPTION_UNINITIALIZED_INTERRUPT           = 15
-	EXCEPTION_SPURIOUS_INTERRUPT                = 24
-	EXCEPTION_INTERRUPT_AUTOVECTOR              = 24
-	EXCEPTION_TRAP_BASE                         = 32
-	EXCEPTION_MMU_CONFIGURATION                 = 56 // only on 020/030
+	Reset                          Exception = 0
+	BusError                       Exception = 2 /* This one is not emulated! */
+	AdressError                    Exception = 3 /* This one is partially emulated (doesn't stack a proper frame yet) */
+	IllegalInstruction             Exception = 4
+	ZeroDivide                     Exception = 5
+	EXCEPTION_CHK                            = 6
+	EXCEPTION_TRAPV                          = 7
+	EXCEPTION_PRIVILEGE_VIOLATION            = 8
+	EXCEPTION_TRACE                          = 9
+	LineA                          Exception = 10
+	LineF                          Exception = 11
+	EXCEPTION_FORMAT_ERROR                   = 14
+	UnintializedInterrupt          Exception = 15
+	EXCEPTION_SPURIOUS_INTERRUPT             = 24
+	EXCEPTION_INTERRUPT_AUTOVECTOR           = 24
+	EXCEPTION_TRAP_BASE                      = 32
+	EXCEPTION_MMU_CONFIGURATION              = 56 // only on 020/030
 )
 
 /* Function codes set by CPU during data/address bus activity */

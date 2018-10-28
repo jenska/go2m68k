@@ -13,12 +13,12 @@ const (
 // StatusRegister for M68000 cpu
 type StatusRegister struct {
 	C, V, Z, N, X, S, T1, T0, M bool
-	Interrupts                  uint32
+	Interrupts                  int
 }
 
 // Get the status register as a bitmap
-func (sr *StatusRegister) Get() uint32 {
-	result := uint32(0)
+func (sr *StatusRegister) Get() int {
+	result := 0
 	if sr.C {
 		result++
 	}
@@ -51,7 +51,7 @@ func (sr *StatusRegister) Get() uint32 {
 }
 
 // Set the status register as a bitmap
-func (sr *StatusRegister) Set(value uint32) {
+func (sr *StatusRegister) Set(value int) {
 	sr.C = (value & 1) != 0
 	sr.V = (value & 2) != 0
 	sr.Z = (value & 4) != 0
@@ -64,11 +64,11 @@ func (sr *StatusRegister) Set(value uint32) {
 	sr.Interrupts = (value & 0x0700) >> 8
 }
 
-func (sr *StatusRegister) GetCCR() uint32 {
+func (sr *StatusRegister) GetCCR() int {
 	return sr.Get() & 0xff
 }
 
-func (sr *StatusRegister) SetCCR(value uint32) {
+func (sr *StatusRegister) SetCCR(value int) {
 	sr.Set(value & 0xff)
 }
 

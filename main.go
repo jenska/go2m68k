@@ -57,6 +57,7 @@ func main() {
 		mem.NewRAM(1024, 1023*1024),
 		mem.NewROM(startROM, data),
 	)
+	cpu.NewCPU(bus)
 
 	util.Dump(bus, startROM, 128)
 }

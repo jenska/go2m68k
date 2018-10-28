@@ -25,42 +25,55 @@ type disassemble func(bus cpu.AddressBus, address cpu.Address) *disassembledOpco
 
 var opcodes []disassemble
 
-func init() {
-	log.Println("init disasm")
-
-	unknown := func(bus cpu.AddressBus, address cpu.Address) *disassembledOpcode {
-		return &disassembledOpcode{address: address, opcode: readO(bus, address), instruction: "????"}
-	}
-
-	opcodes = make([]disassemble, 0x10000)
-	for i, _ := range opcodes {
-		opcodes[i] = unknown
-	}
-
-	moveq := func(bus cpu.AddressBus, address cpu.Address) *disassembledOpcode {
-		opcode := readO(bus, address)
-		return &disassembledOpcode{
-			address:     address,
-			opcode:      opcode,
-			instruction: "moveq",
-			op1:         &disassembledOperand{operand: fmt.Sprintf("#$%02x", opcode&0xff)},
-			op2:         &disassembledOperand{operand: fmt.Sprintf("d%d", ((opcode >> 9) & 0x07))},
-		}
-	}
-	base := 0x7000
-	for reg := 0; reg < 8; reg++ {
-		for imm := 0; imm < 256; imm++ {
-			opcodes[base+(reg<<9)+imm] = moveq
-		}
-	}
-}
-
 func readO(bus cpu.AddressBus, address cpu.Address) int {
 	o, err := bus.Read(address, cpu.Word)
 	if err != nil {
 		panic("invalid address")
 	}
 	return o
+}
+
+func set(index int, d disassemble) {
+	if opcodes[index] != nil {
+		panic("opcode already in use")
+	}
+	opcodes[index] = d
+}
+
+func init() {
+	log.Println("disasm init")
+	opcodes = make([]disassemble, 0x10000)
+
+	log.Println("\tmoveq")
+	moveq := func(bus cpu.AddressBus, address cpu.Address) *disassembledOpcode {
+		opcode := readO(bus, address)
+		return &disassembledOpcode{
+			address:     address,
+			opcode:      opcode,
+			instruction: "moveq",
+			op1:         &disassembledOperand{operand: fmt.Sprintf("#%d", int8(opcode&0xff))},
+			op2:         &disassembledOperand{operand: fmt.Sprintf("d%d", ((opcode >> 9) & 0x07))},
+		}
+	}
+
+	base := 0x7000
+	for reg := 0; reg < 8; reg++ {
+		for imm := 0; imm < 256; imm++ {
+			set(base+(reg<<9)+imm, moveq)
+		}
+	}
+
+	log.Println("\tunknown")
+	unknown := func(bus cpu.AddressBus, address cpu.Address) *disassembledOpcode {
+		return &disassembledOpcode{address: address, opcode: readO(bus, address), instruction: "????"}
+	}
+
+	for i := range opcodes {
+		if opcodes[i] == nil {
+			opcodes[i] = unknown
+		}
+	}
+
 }
 
 func (opcode *disassembledOpcode) Size() int {
@@ -75,11 +88,7 @@ func (opcode *disassembledOpcode) Size() int {
 }
 
 func (opcode *disassembledOpcode) String() string {
-	result := fmt.Sprintf("%08x %04x", opcode.address, opcode.opcode)
-	op1hex := ""
-	op2hex := ""
-	opstr := ""
-
+	op1hex, op2hex, opstr := "", "", ""
 	if opcode.op1 != nil {
 		switch opcode.op1.size {
 		case 2:
@@ -98,7 +107,6 @@ func (opcode *disassembledOpcode) String() string {
 		}
 		opstr += ", " + opcode.op2.operand
 	}
-	result += fmt.Sprintf("%8s %8s %s %s", op1hex, op2hex, opcode.instruction, opstr)
-
-	return result
+	return fmt.Sprintf("%08x %04x %8s %8s %s %s",
+		opcode.address, opcode.opcode, op1hex, op2hex, opcode.instruction, opstr)
 }

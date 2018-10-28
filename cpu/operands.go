@@ -7,7 +7,7 @@ import (
 type Operand struct {
 	name  string
 	short string
-	size  int
+	size  uint
 	mask  uint
 	bits  uint
 	msb   uint
