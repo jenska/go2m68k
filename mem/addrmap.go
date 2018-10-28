@@ -9,12 +9,14 @@ import (
 type (
 	MemoryReader func(cpu.Address, *cpu.Operand) (int, error)
 	MemoryWriter func(cpu.Address, *cpu.Operand, int) error
+	ResetHandler func()
 
 	AddressArea struct {
 		start cpu.Address
 		end   cpu.Address
 		read  MemoryReader
 		write MemoryWriter
+		reset ResetHandler
 	}
 
 	addressMap struct {
@@ -56,6 +58,14 @@ func (a *addressMap) Write(address cpu.Address, operand *cpu.Operand, value int)
 		}
 	}
 	return BusError(address)
+}
+
+func (a *addressMap) Reset() {
+	for _, area := range a.areas {
+		if area.reset != nil {
+			area.reset()
+		}
+	}
 }
 
 func NewAddressBus(areas ...AddressArea) cpu.AddressBus {

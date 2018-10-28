@@ -1,0 +1,24 @@
+{
+    "version": "0.0.0",
+    "defaultImage": 0,
+    "images": [
+        {
+            "description": "EmuTOS 192k 0.9.9.1",
+            "language": "de",
+            "size": "192k",
+            "path": "./data/emutos-192k-0.9.9.1/etos192de.img"
+        },
+        {
+            "description": "EmuTOS 192k 0.9.9.1",
+            "language": "us",
+            "size": "192k",
+            "path": "./data/emutos-192k-0.9.9.1/etos192us.img"
+        },
+        {
+            "description": "EmuTOS 192k 0.9.9.1",
+            "language": "uk",
+            "size": "192k",
+            "path": "./data/emutos-192k-0.9.9.1/etos192uk.img"
+        }
+    ]
+}
