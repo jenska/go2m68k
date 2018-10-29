@@ -31,8 +31,11 @@ type (
 
 func NewCPU(addressBus AddressBus) M68K {
 	result := M68K{bus: addressBus}
+	addressBus.SetSuperVisorFlag(&result.SR.S)
+
 	result.instructions = make([]Instruction, 0x10000)
 	init68000InstructionSet(&result)
+
 	result.Reset()
 	return result
 }
