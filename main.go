@@ -53,11 +53,11 @@ func main() {
 	}
 
 	bus := mem.NewAddressBus(
-		mem.NewProtectedRAM(0, 1024, nil),
-		mem.NewRAM(1024, 1023*1024),
+		mem.NewProtectedRAM(0, 2048),
+		mem.NewRAM(2048, 1024*1024),
 		mem.NewROM(startROM, data),
 	)
-	cpu.NewCPU(bus)
 
+	cpu.NewCPU(bus)
 	util.Dump(bus, startROM, 128)
 }

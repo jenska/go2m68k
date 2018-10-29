@@ -12,16 +12,18 @@ type (
 	ResetHandler func()
 
 	AddressArea struct {
-		start cpu.Address
-		end   cpu.Address
-		read  MemoryReader
-		write MemoryWriter
-		reset ResetHandler
+		start  cpu.Address
+		end    cpu.Address
+		read   MemoryReader
+		write  MemoryWriter
+		reset  ResetHandler
+		parent *addressMap
 	}
 
 	addressMap struct {
 		areas []AddressArea
 		cache *AddressArea
+		sv    *bool
 	}
 )
 
@@ -60,6 +62,10 @@ func (a *addressMap) Write(address cpu.Address, operand *cpu.Operand, value int)
 	return BusError(address)
 }
 
+func (a *addressMap) SetSuperVisorFlag(flag *bool) {
+	a.sv = flag
+}
+
 func (a *addressMap) Reset() {
 	for _, area := range a.areas {
 		if area.reset != nil {
@@ -69,5 +75,9 @@ func (a *addressMap) Reset() {
 }
 
 func NewAddressBus(areas ...AddressArea) cpu.AddressBus {
-	return &addressMap{areas: areas, cache: &areas[0]}
+	result := &addressMap{areas: areas, cache: &areas[0]}
+	for _, area := range areas {
+		area.parent = result
+	}
+	return result
 }

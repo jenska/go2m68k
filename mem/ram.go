@@ -18,7 +18,6 @@ func NewRAM(start cpu.Address, size uint) AddressArea {
 		},
 		read: func(address cpu.Address, operand *cpu.Operand) (int, error) {
 			if address >= start && address < end {
-
 				return operand.Read(ram[address-start:]), nil
 			}
 			return 0, BusError(address)
@@ -26,11 +25,11 @@ func NewRAM(start cpu.Address, size uint) AddressArea {
 	}
 }
 
-func NewProtectedRAM(start cpu.Address, size uint, sr *cpu.StatusRegister) AddressArea {
+func NewProtectedRAM(start cpu.Address, size uint) AddressArea {
 	area := NewRAM(start, size)
 	protectedWrite := area.write
 	area.write = func(address cpu.Address, operand *cpu.Operand, value int) error {
-		if sr.S {
+		if area.parent.sv == nil || *area.parent.sv == true {
 			return protectedWrite(address, operand, value)
 		}
 		return cpu.SuperVisorException(address)

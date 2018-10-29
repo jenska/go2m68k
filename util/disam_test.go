@@ -28,7 +28,7 @@ func TestDisasmMoveq(t *testing.T) {
 			panic(fmt.Sprintf("invalid read %s", err))
 		}
 
-		instruction := opcodes[opcode](bus, start)
+		instruction := opcodes[opcode>>6](bus, start)
 		assert.Equal(t, "moveq", instruction.instruction)
 		assert.Equal(t, 2, instruction.Size())
 		start += cpu.Address(instruction.Size())

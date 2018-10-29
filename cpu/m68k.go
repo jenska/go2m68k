@@ -9,9 +9,8 @@ type (
 		Read(address Address, operand *Operand) (int, error)
 		Write(address Address, operand *Operand, value int) error
 		Reset()
+		SetSuperVisorFlag(*bool)
 	}
-
-	Instruction func(opcode int) int
 
 	M68K struct {
 		// registers
@@ -20,8 +19,11 @@ type (
 		SR       StatusRegister
 		PC       Address
 		SSP, USP Address
-		opcode   int
-		bus      AddressBus
+
+		opcodeAddr Address
+		opcode     int
+
+		bus AddressBus
 
 		instructions []Instruction
 	}
@@ -30,9 +32,25 @@ type (
 func NewCPU(addressBus AddressBus) M68K {
 	result := M68K{bus: addressBus}
 	result.instructions = make([]Instruction, 0x10000)
-	registerM68KInstructions(&result)
+	init68000InstructionSet(&result)
 	result.Reset()
 	return result
+}
+
+func (c *M68K) Step() int {
+	c.opcodeAddr = c.PC
+	if opcode, err := c.bus.Read(c.PC, Word); err == nil {
+		c.opcode = opcode
+		c.PC += Address(Word.size)
+
+		if instruction := c.instructions[opcode>>6]; instruction != nil {
+			return instruction()
+		} else {
+			return c.RaiseException(IllegalInstruction)
+		}
+	} else {
+		panic("bus error")
+	}
 }
 
 func (c *M68K) Reset() {
@@ -47,7 +65,7 @@ func (c *M68K) Reset() {
 	c.SSP, c.PC = sp, pc
 }
 
-func (c *M68K) RaiseException(x Exception) {
+func (c *M68K) RaiseException(x Exception) int {
 	oldSR := c.SR
 	if !c.SR.S {
 		c.SR.S = true
@@ -64,7 +82,7 @@ func (c *M68K) RaiseException(x Exception) {
 	} else {
 		c.PC = xaddr
 	}
-
+	return 34
 }
 
 func (c *M68K) Halt() {

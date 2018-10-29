@@ -22,17 +22,3 @@ func Dump(bus cpu.AddressBus, start cpu.Address, size int) {
 	}
 
 }
-
-func Disassemble(bus cpu.AddressBus, start cpu.Address, size int) {
-	end := start + cpu.Address(size)
-	for start < end {
-		opcode, err := bus.Read(start, cpu.Word)
-		if err != nil {
-			panic(fmt.Sprintf("invalid read %s", err))
-		}
-
-		instruction := opcodes[opcode](bus, start)
-		fmt.Println(instruction)
-		start += cpu.Address(instruction.Size())
-	}
-}
