@@ -3,7 +3,7 @@ package mem
 import (
 	"fmt"
 
-	"github.com/jenska/atari2go/cpu"
+	"github.com/jenska/go2m68k/pkg/cpu"
 )
 
 type AddressError cpu.Address

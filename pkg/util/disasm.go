@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jenska/atari2go/cpu"
+	"github.com/jenska/go2m68k/pkg/cpu"
 )
 
 type disassembledOperand struct {

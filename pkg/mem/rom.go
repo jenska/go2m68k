@@ -1,6 +1,6 @@
 package mem
 
-import "github.com/jenska/atari2go/cpu"
+import "github.com/jenska/go2m68k/pkg/cpu"
 
 func NewROM(start cpu.Address, rom []byte) AddressArea {
 	end := start + cpu.Address(len(rom))

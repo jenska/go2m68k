@@ -1,6 +1,6 @@
 package mem
 
-import "github.com/jenska/atari2go/cpu"
+import "github.com/jenska/go2m68k/pkg/cpu"
 
 func NewRAM(start cpu.Address, size uint) AddressArea {
 	ram := make([]byte, size)

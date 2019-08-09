@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/jenska/atari2go/cpu"
-	"github.com/jenska/atari2go/mem"
-	"github.com/jenska/atari2go/util"
+	"github.com/jenska/go2m68k/pkg/cpu"
+	"github.com/jenska/go2m68k/pkg/mem"
+	"github.com/jenska/go2m68k/pkg/util"
 	"github.com/spf13/viper"
 )
 

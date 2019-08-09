@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/jenska/atari2go/cpu"
+	"github.com/jenska/go2m68k/pkg/cpu"
 	"github.com/stretchr/testify/assert"
 )
 
