@@ -6,8 +6,8 @@ type Exception uint
 // Exception vectors handled by emulation
 const (
 	Reset                          Exception = 0
-	BusError                       Exception = 2 /* This one is not emulated! */
-	AdressError                    Exception = 3 /* This one is partially emulated (doesn't stack a proper frame yet) */
+	BusError                       Exception = 2
+	AdressError                    Exception = 3
 	IllegalInstruction             Exception = 4
 	ZeroDivide                     Exception = 5
 	EXCEPTION_CHK                            = 6

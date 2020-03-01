@@ -93,7 +93,7 @@ func (c *M68K) Halt() {
 }
 
 func (c *M68K) readA(address Address) (Address, error) {
-	a, err := c.bus.Read(0, Long)
+	a, err := c.bus.Read(address, Long)
 	return Address(a), err
 }
 

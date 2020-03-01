@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 )
 
-type Operand struct {
+type Size struct {
 	name  string
 	short string
 	size  uint
@@ -16,7 +16,7 @@ type Operand struct {
 }
 
 var (
-	Byte = &Operand{
+	Byte = &Size{
 		name:  "Byte",
 		short: ".b",
 		size:  1,
@@ -31,7 +31,7 @@ var (
 		},
 	}
 
-	Word = &Operand{
+	Word = &Size{
 		name:  "Word",
 		short: ".w",
 		size:  2,
@@ -46,7 +46,7 @@ var (
 		},
 	}
 
-	Long = &Operand{
+	Long = &Size{
 		name:  "Long",
 		short: ".l",
 		size:  4,
@@ -62,6 +62,6 @@ var (
 	}
 )
 
-func (o *Operand) IsNegative(value int) bool {
+func (s *Size) IsNegative(value int) bool {
 	return o.msb&uint(value) != 0
 }
