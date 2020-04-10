@@ -2,7 +2,7 @@ package cpu
 
 import "log"
 
-func (cpu M68000) initISA() {
+func (cpu *M68K) InitISA68000() CPUBuilder {
 	or := func() {}
 	and := func() {}
 	btst := func() {} // movep
@@ -179,6 +179,7 @@ func (cpu M68000) initISA() {
 		linef, linef, linef, linef, linef, linef, linef, linef,
 		linef, linef, linef, linef, linef, linef, linef, linef}
 
-	log.Printf("init M68000 ISA")
+	log.Printf("init M68K ISA")
 	log.Println(isaTable)
+	return cpu
 }

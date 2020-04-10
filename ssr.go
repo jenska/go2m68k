@@ -69,7 +69,11 @@ func (sr *SSR) GetCCR() int {
 }
 
 func (sr *SSR) SetCCR(value int) {
-	sr.Bits(value & 0xff)
+	sr.C = (value & 1) != 0
+	sr.V = (value & 2) != 0
+	sr.Z = (value & 4) != 0
+	sr.N = (value & 8) != 0
+	sr.X = (value & 16) != 0
 }
 
 // TODO: return func(result, src, dest int)

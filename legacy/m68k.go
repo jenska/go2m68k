@@ -29,7 +29,7 @@ type (
 	}
 )
 
-func NewCPU(addressBus AddressBus) M68K {
+func NewCPU(addressBus AddressBus) *M68K {
 	result := M68K{bus: addressBus}
 	addressBus.SetSuperVisorFlag(&result.SR.S)
 
