@@ -42,6 +42,37 @@ func TestRAM(t *testing.T) {
 		io.Write(1024*1024-3, Long, 2)
 	})
 
+	assert.Panics(t, func() {
+		io.Read(1024*1024, Byte)
+	})
+
+	assert.Panics(t, func() {
+		io.Read(1024*1024-1, Word)
+	})
+
+	assert.Panics(t, func() {
+		io.Read(1024*1024-3, Long)
+	})
+
+	assert.Panics(t, func() {
+		io.Read(1024*1024+1024, Byte)
+	})
+	assert.Panics(t, func() {
+		io.Read(1024*1024+1024, Word)
+	})
+	assert.Panics(t, func() {
+		io.Read(1024*1024+1024, Long)
+	})
+	assert.Panics(t, func() {
+		io.Write(1024*1024+10124, Byte, 2)
+	})
+	assert.Panics(t, func() {
+		io.Write(1024*1024+1024, Word, 2)
+	})
+	assert.Panics(t, func() {
+		io.Write(1024*1024+1024, Long, 2)
+	})
+
 	io.Reset()
 	assert.Equal(t, 0, io.Read(0, Long))
 }

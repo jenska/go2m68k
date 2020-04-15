@@ -1,8 +1,6 @@
 package cpu
 
-import (
-	"strconv"
-)
+import "fmt"
 
 //go:generate stringer -type=CPUError
 
@@ -30,7 +28,9 @@ type (
 
 	CPUBuilder interface {
 		AttachBus(AddressBus) CPUBuilder
-		AttachBaseArea(ssp, pc, size uint32) CPUBuilder
+
+		AddBaseArea(ssp, pc, size uint32) CPUBuilder
+		AddArea(offset, size uint32, area *AddressArea) CPUBuilder
 		InitISA68000() CPUBuilder
 		Build() *M68K
 		Go() *M68K
@@ -56,12 +56,8 @@ type (
 	}
 )
 
-func (e CPUError) Error() string {
-	return strconv.Itoa(int(e))
-}
-
 func NewCPU() CPUBuilder {
-	return &M68K{SR: SSR{S: true}}
+	return &M68K{SR: SSR{S: true, Interrupts: 7}}
 }
 
 func (cpu *M68K) AttachBus(bus AddressBus) CPUBuilder {
@@ -69,8 +65,16 @@ func (cpu *M68K) AttachBus(bus AddressBus) CPUBuilder {
 	return cpu
 }
 
-func (cpu *M68K) AttachBaseArea(ssp, pc, size uint32) CPUBuilder {
-	cpu.bus = NewIOManager(size, NewBaseArea("BaseArea", cpu, ssp, pc, size))
+func (cpu *M68K) AddBaseArea(ssp, pc, size uint32) CPUBuilder {
+	return cpu.AttachBus(NewIOManager(size, NewBaseArea("BaseArea", cpu, ssp, pc, size)))
+}
+
+func (cpu *M68K) AddArea(offset, size uint32, area *AddressArea) CPUBuilder {
+	if io, ok := cpu.bus.(*IOManager); !ok {
+		panic("no IOManager attached")
+	} else {
+		io.AddArea(offset, size, area)
+	}
 	return cpu
 }
 
@@ -82,7 +86,22 @@ func (cpu *M68K) Build() *M68K {
 	cpu.Reset = make(chan bool)
 	cpu.Halt = make(chan bool)
 	cpu.trace = make(chan func())
+	cpu.reset()
 	return cpu
+}
+
+func (cpu *M68K) String() string {
+	result := fmt.Sprintf("SR %s PC %08x USP %08x SSP %08x\n", cpu.SR, cpu.PC, cpu.USP, cpu.SSP)
+	for i := range cpu.D {
+		result += fmt.Sprintf("D%d %08x ", i, cpu.D[i])
+	}
+	result += "\n"
+	for i := range cpu.A {
+		result += fmt.Sprintf("A%d %08x ", i, cpu.A[i])
+	}
+	result += "\n"
+
+	return result
 }
 
 func (cpu *M68K) Go() *M68K {
@@ -99,10 +118,7 @@ func (cpu *M68K) Go() *M68K {
 		for {
 			select {
 			case <-cpu.Reset:
-				cpu.bus.Reset()
-				cpu.SR.Bits(0x2700)
-				cpu.SSP, cpu.PC = cpu.readAddress(0), cpu.readAddress(4)
-
+				cpu.reset()
 			case <-cpu.Halt:
 				return
 
@@ -132,12 +148,19 @@ func (cpu *M68K) step() *M68K {
 	return cpu
 }
 
+func (cpu *M68K) reset() {
+	cpu.bus.Reset()
+	cpu.SR.Bits(0x2700)
+	cpu.SSP, cpu.PC = cpu.readAddress(0), cpu.readAddress(4)
+	cpu.A[7] = cpu.SSP
+}
+
 func (cpu *M68K) raiseException(err CPUError) {
 	oldSR := cpu.SR
 	if !cpu.SR.S {
 		cpu.SR.S = true
+		cpu.USP = cpu.A[7]
 	}
-	cpu.USP = cpu.A[7]
 	cpu.A[7] = cpu.SSP
 	cpu.push(Long, int(cpu.PC))
 	cpu.push(Word, int(oldSR.ToBits()))

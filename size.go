@@ -40,10 +40,10 @@ var (
 		msb:   0x00008000,
 		fmt:   "$%04x",
 		Write: func(slice []byte, value int) {
-			binary.LittleEndian.PutUint16(slice, uint16(value))
+			binary.BigEndian.PutUint16(slice, uint16(value))
 		},
 		Read: func(slice []byte) int {
-			return int(binary.LittleEndian.Uint16(slice))
+			return int(binary.BigEndian.Uint16(slice))
 		},
 	}
 
@@ -55,10 +55,10 @@ var (
 		msb:   0x80000000,
 		fmt:   "$%08x",
 		Write: func(sclice []byte, value int) {
-			binary.LittleEndian.PutUint32(sclice, uint32(value))
+			binary.BigEndian.PutUint32(sclice, uint32(value))
 		},
 		Read: func(slice []byte) int {
-			return int(binary.LittleEndian.Uint32(slice))
+			return int(binary.BigEndian.Uint32(slice))
 		},
 	}
 )

@@ -1,5 +1,7 @@
 package cpu
 
+import "strconv"
+
 const (
 	flagLogical = iota
 	flagCmp
@@ -14,6 +16,28 @@ const (
 type SSR struct {
 	C, V, Z, N, X, S, T1, T0, M bool
 	Interrupts                  int
+}
+
+func appendFlag(flag bool, name string, str string) string {
+	if flag {
+		return str + name
+	}
+	return str + "-"
+}
+
+func (sr SSR) String() string {
+	result := ""
+	result = appendFlag(sr.C, "C", result)
+	result = appendFlag(sr.V, "V", result)
+	result = appendFlag(sr.Z, "Z", result)
+	result = appendFlag(sr.N, "N", result)
+	result = appendFlag(sr.X, "X", result)
+	result = appendFlag(sr.S, "S", result)
+	result = appendFlag(sr.T1, "T", result)
+	result = appendFlag(sr.T0, "0", result)
+	result = appendFlag(sr.N, "M", result)
+	result += strconv.Itoa(sr.Interrupts)
+	return result
 }
 
 // Get the status register as a bitmap
