@@ -13,15 +13,19 @@ type (
 
 	// 0 Dx
 	eaDataRegister struct {
-		o        *Size
-		register *int
+		o   *Size
+		reg *int32
 	}
 	// 1 Ax
-	eaAddressRegister eaDataRegister
+	eaAddressRegister struct {
+		o   *Size
+		reg *uint32
+	}
+
 	// 2 (Ax)
 	eaAddressRegisterIndirect struct {
 		addressModifier
-		register *int
+		reg *uint32
 	}
 	// 3 (Ax)+
 	eaAddressRegisterPostInc eaAddressRegisterIndirect
@@ -50,22 +54,36 @@ type (
 
 	// Helper for read and write of precomputed addresses
 	addressModifier struct {
-		cpu     *M68K
-		o       *Size
-		address uint32
-		// cycles  int
+		cpu    *M68K
+		o      *Size
+		addr   uint32
+		cycles int
 	}
 )
 
-func (c *M68K) readImm(o *Size) int {
-	result := c.read(c.PC, o)
-	c.PC += o.align
+func (cpu *M68K) readAddress(a int32) int32 {
+	return cpu.read(a, Long)
+}
+
+func (cpu *M68K) push(s *Size, value int32) {
+	cpu.a[7] -= s.size
+	cpu.write(cpu.a[7], s, value)
+}
+
+func (cpu *M68K) pop(s *Size) int32 {
+	result := cpu.read(cpu.a[7], s)
+	cpu.a[7] += s.size
+	return result
+}
+
+func (c *M68K) popPC(o *Size) int32 {
+	result := c.read(c.pc, o)
+	c.pc += o.align
 	return result
 }
 
 func (c *M68K) operandY() *Size {
-	ops := []*Size{Byte, Word, Long}
-	return ops[(c.IR>>6)&0x3]
+	return operands[(c.ir>>6)&0x3]
 }
 
 /*

@@ -1,474 +1,181 @@
 package cpu
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 type (
-	disasm struct {
-		pc  uint32
-		ir  uint16
-		bus AddressBus
+	dasmOperand struct {
+		operand string
+		size    *Size
 	}
 
-	opcode struct {
-		handler func(*disasm) string
-		mask    int
-		match   int
-		eaMask  uint16
-		move    bool
+	// DasmInstruction is a container for a disassembled M68K instruction
+	DasmInstruction struct {
+		instruction string
+		address     int32
+		operands    []dasmOperand
 	}
+
+	DasmIterator struct {
+		bus     AddressBus
+		address int32
+	}
+
+	dasm func(ir uint16, pc int32, bus AddressBus) DasmInstruction
 )
 
-func Disassemble(pc uint32, bus AddressBus) (string, uint32) {
-	d := &disasm{
-		pc:  pc + Word.size,
-		ir:  uint16(bus.Read(pc, Word)),
-		bus: bus,
-	}
-	return instructionTable[d.ir](d), d.pc
+var dasmTable = make([]dasm, 0x10000)
+
+// Disassemble an M68K instruction
+func Disassembler(pc int32, bus AddressBus) *DasmIterator {
+	return &DasmIterator{bus, pc}
 }
 
-func dasmEAMode(s *Size, d *disasm) string {
-	switch ea := (d.ir & 0x3f) >> 3; ea {
-	case 0:
-		return fmt.Sprintf("D%d", d.ir&7)
-	case 1:
-		return fmt.Sprintf("A%d", d.ir&7)
-	case 2:
-		return fmt.Sprintf("(A%d)", d.ir&7)
-	case 3:
-		return fmt.Sprintf("(A%d)+", d.ir&7)
-	case 4:
-		return fmt.Sprintf("-(A%d)", d.ir&7)
-	case 5:
-	//	return fmt.Sprintf("(%s, A%d)", Word.SignedHexString(d.readImmediate(Word)), d.ir&7)
-	case 6:
+func (iter *DasmIterator) Next() DasmInstruction {
+	ir := uint16(iter.bus.read(iter.address, Word))
+	result := dasmTable[ir](ir, iter.address, iter.bus)
 
-	}
-
-	return "xxx not implemented xxx"
-}
-
-/* ======================================================================== */
-/* ============================ Opcode Handlers =========================== */
-/* ======================================================================== */
-
-func d68000_illegal(d *disasm) string {
-	return fmt.Sprintf("dc.w    $%04x ; illegal", d.ir)
-}
-
-func d68000_bra_8(d *disasm) string {
-	return fmt.Sprintf("bra.s $%08x", int(d.pc)+int(int8(d.ir)))
-}
-
-func d68000_move_8(d *disasm) string {
-	return ""
-}
-func d68000_move_16(d *disasm) string {
-	return ""
-}
-func d68000_move_32(d *disasm) string {
-	return ""
-}
-
-func d68000_movea_16(d *disasm) string {
-	return ""
-}
-
-func d68000_movea_32(d *disasm) string {
-	return ""
-}
-
-/* ======================================================================== */
-/* ============================= BitOp Helpers ============================ */
-/* ======================================================================== */
-
-func eax(ir uint16) uint16 { return (ir >> 9) & 7 }
-func eay(ir uint16) uint16 { return ir & 7 }
-func eam(ir uint16) uint16 { return eax(ir) | ((ir >> 3) & 0x38) }
-
-/* ======================================================================== */
-/* ======================= INSTRUCTION TABLE BUILDER ====================== */
-/* ======================================================================== */
-
-/* EA Masks:
-800 = data register direct
-400 = address register direct
-200 = address register indirect
-100 = ARI postincrement
- 80 = ARI pre-decrement
- 40 = ARI displacement
- 20 = ARI index
- 10 = absolute short
-  8 = absolute long
-  4 = immediate / sr
-  2 = pc displacement
-  1 = pc idx
-*/
-var (
-	instructionTable []func(*disasm) string
-	opcodeInfo       = []opcode{
-		/*  opcode handler             mask    match   ea mask */
-		/*		{d68000_1010, 0xf000, 0xa000, 0x000},
-				{d68000_1111, 0xf000, 0xf000, 0x000},
-				{d68000_abcd_rr, 0xf1f8, 0xc100, 0x000},
-				{d68000_abcd_mm, 0xf1f8, 0xc108, 0x000},
-				{d68000_add_er_8, 0xf1c0, 0xd000, 0xbff},
-				{d68000_add_er_16, 0xf1c0, 0xd040, 0xfff},
-				{d68000_add_er_32, 0xf1c0, 0xd080, 0xfff},
-				{d68000_add_re_8, 0xf1c0, 0xd100, 0x3f8},
-				{d68000_add_re_16, 0xf1c0, 0xd140, 0x3f8},
-				{d68000_add_re_32, 0xf1c0, 0xd180, 0x3f8},
-				{d68000_adda_16, 0xf1c0, 0xd0c0, 0xfff},
-				{d68000_adda_32, 0xf1c0, 0xd1c0, 0xfff},
-				{d68000_addi_8, 0xffc0, 0x0600, 0xbf8},
-				{d68000_addi_16, 0xffc0, 0x0640, 0xbf8},
-				{d68000_addi_32, 0xffc0, 0x0680, 0xbf8},
-				{d68000_addq_8, 0xf1c0, 0x5000, 0xbf8},
-				{d68000_addq_16, 0xf1c0, 0x5040, 0xff8},
-				{d68000_addq_32, 0xf1c0, 0x5080, 0xff8},
-				{d68000_addx_rr_8, 0xf1f8, 0xd100, 0x000},
-				{d68000_addx_rr_16, 0xf1f8, 0xd140, 0x000},
-				{d68000_addx_rr_32, 0xf1f8, 0xd180, 0x000},
-				{d68000_addx_mm_8, 0xf1f8, 0xd108, 0x000},
-				{d68000_addx_mm_16, 0xf1f8, 0xd148, 0x000},
-				{d68000_addx_mm_32, 0xf1f8, 0xd188, 0x000},
-				{d68000_and_er_8, 0xf1c0, 0xc000, 0xbff},
-				{d68000_and_er_16, 0xf1c0, 0xc040, 0xbff},
-				{d68000_and_er_32, 0xf1c0, 0xc080, 0xbff},
-				{d68000_and_re_8, 0xf1c0, 0xc100, 0x3f8},
-				{d68000_and_re_16, 0xf1c0, 0xc140, 0x3f8},
-				{d68000_and_re_32, 0xf1c0, 0xc180, 0x3f8},
-				{d68000_andi_to_ccr, 0xffff, 0x023c, 0x000},
-				{d68000_andi_to_sr, 0xffff, 0x027c, 0x000},
-				{d68000_andi_8, 0xffc0, 0x0200, 0xbf8},
-				{d68000_andi_16, 0xffc0, 0x0240, 0xbf8},
-				{d68000_andi_32, 0xffc0, 0x0280, 0xbf8},
-				{d68000_asr_s_8, 0xf1f8, 0xe000, 0x000},
-				{d68000_asr_s_16, 0xf1f8, 0xe040, 0x000},
-				{d68000_asr_s_32, 0xf1f8, 0xe080, 0x000},
-				{d68000_asr_r_8, 0xf1f8, 0xe020, 0x000},
-				{d68000_asr_r_16, 0xf1f8, 0xe060, 0x000},
-				{d68000_asr_r_32, 0xf1f8, 0xe0a0, 0x000},
-				{d68000_asr_ea, 0xffc0, 0xe0c0, 0x3f8},
-				{d68000_asl_s_8, 0xf1f8, 0xe100, 0x000},
-				{d68000_asl_s_16, 0xf1f8, 0xe140, 0x000},
-				{d68000_asl_s_32, 0xf1f8, 0xe180, 0x000},
-				{d68000_asl_r_8, 0xf1f8, 0xe120, 0x000},
-				{d68000_asl_r_16, 0xf1f8, 0xe160, 0x000},
-				{d68000_asl_r_32, 0xf1f8, 0xe1a0, 0x000},
-				{d68000_asl_ea, 0xffc0, 0xe1c0, 0x3f8},
-				{d68000_bcc_8, 0xf000, 0x6000, 0x000},
-				{d68000_bcc_16, 0xf0ff, 0x6000, 0x000},
-				{d68020_bcc_32, 0xf0ff, 0x60ff, 0x000},
-				{d68000_bchg_r, 0xf1c0, 0x0140, 0xbf8},
-				{d68000_bchg_s, 0xffc0, 0x0840, 0xbf8},
-				{d68000_bclr_r, 0xf1c0, 0x0180, 0xbf8},
-				{d68000_bclr_s, 0xffc0, 0x0880, 0xbf8},
-				{d68020_bfchg, 0xffc0, 0xeac0, 0xa78},
-				{d68020_bfclr, 0xffc0, 0xecc0, 0xa78},
-				{d68020_bfexts, 0xffc0, 0xebc0, 0xa7b},
-				{d68020_bfextu, 0xffc0, 0xe9c0, 0xa7b},
-				{d68020_bfffo, 0xffc0, 0xedc0, 0xa7b},
-				{d68020_bfins, 0xffc0, 0xefc0, 0xa78},
-				{d68020_bfset, 0xffc0, 0xeec0, 0xa78},
-				{d68020_bftst, 0xffc0, 0xe8c0, 0xa7b},
-				{d68881_ftrap, 0xfff8, 0xf278, 0x000},
-				{d68010_bkpt, 0xfff8, 0x4848, 0x000},*/
-		{d68000_bra_8, 0xff00, 0x6000, 0x000, false},
-		/*
-				{d68020_bra_32, 0xffff, 0x60ff, 0x000},
-				{d68000_bset_r, 0xf1c0, 0x01c0, 0xbf8},
-				{d68000_bset_s, 0xffc0, 0x08c0, 0xbf8},
-				{d68000_bsr_8, 0xff00, 0x6100, 0x000},
-				{d68000_bsr_16, 0xffff, 0x6100, 0x000},
-				{d68020_bsr_32, 0xffff, 0x61ff, 0x000},
-				{d68000_btst_r, 0xf1c0, 0x0100, 0xbff},
-				{d68000_btst_s, 0xffc0, 0x0800, 0xbfb},
-				{d68020_callm, 0xffc0, 0x06c0, 0x27b},
-				{d68020_cas_8, 0xffc0, 0x0ac0, 0x3f8},
-				{d68020_cas_16, 0xffc0, 0x0cc0, 0x3f8},
-				{d68020_cas_32, 0xffc0, 0x0ec0, 0x3f8},
-				{d68020_cas2_16, 0xffff, 0x0cfc, 0x000},
-				{d68020_cas2_32, 0xffff, 0x0efc, 0x000},
-				{d68000_chk_16, 0xf1c0, 0x4180, 0xbff},
-				{d68020_chk_32, 0xf1c0, 0x4100, 0xbff},
-				{d68020_chk2_cmp2_8, 0xffc0, 0x00c0, 0x27b},
-				{d68020_chk2_cmp2_16, 0xffc0, 0x02c0, 0x27b},
-				{d68020_chk2_cmp2_32, 0xffc0, 0x04c0, 0x27b},
-				{d68040_cinv, 0xff20, 0xf400, 0x000},
-				{d68000_clr_8, 0xffc0, 0x4200, 0xbf8},
-				{d68000_clr_16, 0xffc0, 0x4240, 0xbf8},
-				{d68000_clr_32, 0xffc0, 0x4280, 0xbf8},
-				{d68000_cmp_8, 0xf1c0, 0xb000, 0xbff},
-				{d68000_cmp_16, 0xf1c0, 0xb040, 0xfff},
-				{d68000_cmp_32, 0xf1c0, 0xb080, 0xfff},
-				{d68000_cmpa_16, 0xf1c0, 0xb0c0, 0xfff},
-				{d68000_cmpa_32, 0xf1c0, 0xb1c0, 0xfff},
-				{d68000_cmpi_8, 0xffc0, 0x0c00, 0xbf8},
-				{d68020_cmpi_pcdi_8, 0xffff, 0x0c3a, 0x000},
-				{d68020_cmpi_pcix_8, 0xffff, 0x0c3b, 0x000},
-				{d68000_cmpi_16, 0xffc0, 0x0c40, 0xbf8},
-				{d68020_cmpi_pcdi_16, 0xffff, 0x0c7a, 0x000},
-				{d68020_cmpi_pcix_16, 0xffff, 0x0c7b, 0x000},
-				{d68000_cmpi_32, 0xffc0, 0x0c80, 0xbf8},
-				{d68020_cmpi_pcdi_32, 0xffff, 0x0cba, 0x000},
-				{d68020_cmpi_pcix_32, 0xffff, 0x0cbb, 0x000},
-				{d68000_cmpm_8, 0xf1f8, 0xb108, 0x000},
-				{d68000_cmpm_16, 0xf1f8, 0xb148, 0x000},
-				{d68000_cmpm_32, 0xf1f8, 0xb188, 0x000},
-				{d68020_cpbcc_16, 0xf1c0, 0xf080, 0x000},
-				{d68020_cpbcc_32, 0xf1c0, 0xf0c0, 0x000},
-				{d68020_cpdbcc, 0xf1f8, 0xf048, 0x000},
-				{d68020_cpgen, 0xf1c0, 0xf000, 0x000},
-				{d68020_cprestore, 0xf1c0, 0xf140, 0x37f},
-				{d68020_cpsave, 0xf1c0, 0xf100, 0x2f8},
-				{d68020_cpscc, 0xf1c0, 0xf040, 0xbf8},
-				{d68020_cptrapcc_0, 0xf1ff, 0xf07c, 0x000},
-				{d68020_cptrapcc_16, 0xf1ff, 0xf07a, 0x000},
-				{d68020_cptrapcc_32, 0xf1ff, 0xf07b, 0x000},
-				{d68040_cpush, 0xff20, 0xf420, 0x000},
-				{d68000_dbcc, 0xf0f8, 0x50c8, 0x000},
-				{d68000_dbra, 0xfff8, 0x51c8, 0x000},
-				{d68000_divs, 0xf1c0, 0x81c0, 0xbff},
-				{d68000_divu, 0xf1c0, 0x80c0, 0xbff},
-				{d68020_divl, 0xffc0, 0x4c40, 0xbff},
-				{d68000_eor_8, 0xf1c0, 0xb100, 0xbf8},
-				{d68000_eor_16, 0xf1c0, 0xb140, 0xbf8},
-				{d68000_eor_32, 0xf1c0, 0xb180, 0xbf8},
-				{d68000_eori_to_ccr, 0xffff, 0x0a3c, 0x000},
-				{d68000_eori_to_sr, 0xffff, 0x0a7c, 0x000},
-				{d68000_eori_8, 0xffc0, 0x0a00, 0xbf8},
-				{d68000_eori_16, 0xffc0, 0x0a40, 0xbf8},
-				{d68000_eori_32, 0xffc0, 0x0a80, 0xbf8},
-				{d68000_exg_dd, 0xf1f8, 0xc140, 0x000},
-				{d68000_exg_aa, 0xf1f8, 0xc148, 0x000},
-				{d68000_exg_da, 0xf1f8, 0xc188, 0x000},
-				{d68020_extb_32, 0xfff8, 0x49c0, 0x000},
-				{d68000_ext_16, 0xfff8, 0x4880, 0x000},
-				{d68000_ext_32, 0xfff8, 0x48c0, 0x000},
-				{d68040_fpu, 0xffc0, 0xf200, 0x000},
-				{d68000_illegal, 0xffff, 0x4afc, 0x000},
-				{d68000_jmp, 0xffc0, 0x4ec0, 0x27b},
-				{d68000_jsr, 0xffc0, 0x4e80, 0x27b},
-				{d68000_lea, 0xf1c0, 0x41c0, 0x27b},
-				{d68000_link_16, 0xfff8, 0x4e50, 0x000},
-				{d68020_link_32, 0xfff8, 0x4808, 0x000},
-				{d68000_lsr_s_8, 0xf1f8, 0xe008, 0x000},
-				{d68000_lsr_s_16, 0xf1f8, 0xe048, 0x000},
-				{d68000_lsr_s_32, 0xf1f8, 0xe088, 0x000},
-				{d68000_lsr_r_8, 0xf1f8, 0xe028, 0x000},
-				{d68000_lsr_r_16, 0xf1f8, 0xe068, 0x000},
-				{d68000_lsr_r_32, 0xf1f8, 0xe0a8, 0x000},
-				{d68000_lsr_ea, 0xffc0, 0xe2c0, 0x3f8},
-				{d68000_lsl_s_8, 0xf1f8, 0xe108, 0x000},
-				{d68000_lsl_s_16, 0xf1f8, 0xe148, 0x000},
-				{d68000_lsl_s_32, 0xf1f8, 0xe188, 0x000},
-				{d68000_lsl_r_8, 0xf1f8, 0xe128, 0x000},
-				{d68000_lsl_r_16, 0xf1f8, 0xe168, 0x000},
-				{d68000_lsl_r_32, 0xf1f8, 0xe1a8, 0x000},
-				{d68000_lsl_ea, 0xffc0, 0xe3c0, 0x3f8},
-			{d68000_move_8, 0xf000, 0x1000, 0xbff, true},
-			{d68000_move_16, 0xf000, 0x3000, 0xfff, true},
-			{d68000_move_32, 0xf000, 0x2000, 0xfff, true},
-			{d68000_movea_16, 0xf1c0, 0x3040, 0xfff, false},
-			{d68000_movea_32, 0xf1c0, 0x2040, 0xfff, false},
-						{d68000_move_to_ccr, 0xffc0, 0x44c0, 0xbff},
-						{d68010_move_fr_ccr, 0xffc0, 0x42c0, 0xbf8},
-						{d68000_move_to_sr, 0xffc0, 0x46c0, 0xbff},
-						{d68000_move_fr_sr, 0xffc0, 0x40c0, 0xbf8},
-						{d68000_move_to_usp, 0xfff8, 0x4e60, 0x000},
-						{d68000_move_fr_usp, 0xfff8, 0x4e68, 0x000},
-						{d68010_movec, 0xfffe, 0x4e7a, 0x000},
-						{d68000_movem_pd_16, 0xfff8, 0x48a0, 0x000},
-						{d68000_movem_pd_32, 0xfff8, 0x48e0, 0x000},
-						{d68000_movem_re_16, 0xffc0, 0x4880, 0x2f8},
-						{d68000_movem_re_32, 0xffc0, 0x48c0, 0x2f8},
-						{d68000_movem_er_16, 0xffc0, 0x4c80, 0x37b},
-						{d68000_movem_er_32, 0xffc0, 0x4cc0, 0x37b},
-						{d68000_movep_er_16, 0xf1f8, 0x0108, 0x000},
-						{d68000_movep_er_32, 0xf1f8, 0x0148, 0x000},
-						{d68000_movep_re_16, 0xf1f8, 0x0188, 0x000},
-						{d68000_movep_re_32, 0xf1f8, 0x01c8, 0x000},
-						{d68010_moves_8, 0xffc0, 0x0e00, 0x3f8},
-						{d68010_moves_16, 0xffc0, 0x0e40, 0x3f8},
-						{d68010_moves_32, 0xffc0, 0x0e80, 0x3f8},
-						{d68000_moveq, 0xf100, 0x7000, 0x000},
-						{d68040_move16_pi_pi, 0xfff8, 0xf620, 0x000},
-						{d68040_move16_pi_al, 0xfff8, 0xf600, 0x000},
-						{d68040_move16_al_pi, 0xfff8, 0xf608, 0x000},
-						{d68040_move16_ai_al, 0xfff8, 0xf610, 0x000},
-						{d68040_move16_al_ai, 0xfff8, 0xf618, 0x000},
-						{d68000_muls, 0xf1c0, 0xc1c0, 0xbff},
-						{d68000_mulu, 0xf1c0, 0xc0c0, 0xbff},
-						{d68020_mull, 0xffc0, 0x4c00, 0xbff},
-						{d68000_nbcd, 0xffc0, 0x4800, 0xbf8},
-						{d68000_neg_8, 0xffc0, 0x4400, 0xbf8},
-						{d68000_neg_16, 0xffc0, 0x4440, 0xbf8},
-						{d68000_neg_32, 0xffc0, 0x4480, 0xbf8},
-						{d68000_negx_8, 0xffc0, 0x4000, 0xbf8},
-						{d68000_negx_16, 0xffc0, 0x4040, 0xbf8},
-						{d68000_negx_32, 0xffc0, 0x4080, 0xbf8},
-						{d68000_nop, 0xffff, 0x4e71, 0x000},
-						{d68000_not_8, 0xffc0, 0x4600, 0xbf8},
-						{d68000_not_16, 0xffc0, 0x4640, 0xbf8},
-						{d68000_not_32, 0xffc0, 0x4680, 0xbf8},
-						{d68000_or_er_8, 0xf1c0, 0x8000, 0xbff},
-						{d68000_or_er_16, 0xf1c0, 0x8040, 0xbff},
-						{d68000_or_er_32, 0xf1c0, 0x8080, 0xbff},
-						{d68000_or_re_8, 0xf1c0, 0x8100, 0x3f8},
-						{d68000_or_re_16, 0xf1c0, 0x8140, 0x3f8},
-						{d68000_or_re_32, 0xf1c0, 0x8180, 0x3f8},
-						{d68000_ori_to_ccr, 0xffff, 0x003c, 0x000},
-						{d68000_ori_to_sr, 0xffff, 0x007c, 0x000},
-						{d68000_ori_8, 0xffc0, 0x0000, 0xbf8},
-						{d68000_ori_16, 0xffc0, 0x0040, 0xbf8},
-						{d68000_ori_32, 0xffc0, 0x0080, 0xbf8},
-						{d68020_pack_rr, 0xf1f8, 0x8140, 0x000},
-						{d68020_pack_mm, 0xf1f8, 0x8148, 0x000},
-						{d68000_pea, 0xffc0, 0x4840, 0x27b},
-						{d68040_p000, 0xff80, 0xf500, 0x000},
-						{d68000_reset, 0xffff, 0x4e70, 0x000},
-						{d68000_ror_s_8, 0xf1f8, 0xe018, 0x000},
-						{d68000_ror_s_16, 0xf1f8, 0xe058, 0x000},
-						{d68000_ror_s_32, 0xf1f8, 0xe098, 0x000},
-						{d68000_ror_r_8, 0xf1f8, 0xe038, 0x000},
-						{d68000_ror_r_16, 0xf1f8, 0xe078, 0x000},
-						{d68000_ror_r_32, 0xf1f8, 0xe0b8, 0x000},
-						{d68000_ror_ea, 0xffc0, 0xe6c0, 0x3f8},
-						{d68000_rol_s_8, 0xf1f8, 0xe118, 0x000},
-						{d68000_rol_s_16, 0xf1f8, 0xe158, 0x000},
-						{d68000_rol_s_32, 0xf1f8, 0xe198, 0x000},
-						{d68000_rol_r_8, 0xf1f8, 0xe138, 0x000},
-						{d68000_rol_r_16, 0xf1f8, 0xe178, 0x000},
-						{d68000_rol_r_32, 0xf1f8, 0xe1b8, 0x000},
-						{d68000_rol_ea, 0xffc0, 0xe7c0, 0x3f8},
-						{d68000_roxr_s_8, 0xf1f8, 0xe010, 0x000},
-						{d68000_roxr_s_16, 0xf1f8, 0xe050, 0x000},
-						{d68000_roxr_s_32, 0xf1f8, 0xe090, 0x000},
-						{d68000_roxr_r_8, 0xf1f8, 0xe030, 0x000},
-						{d68000_roxr_r_16, 0xf1f8, 0xe070, 0x000},
-						{d68000_roxr_r_32, 0xf1f8, 0xe0b0, 0x000},
-						{d68000_roxr_ea, 0xffc0, 0xe4c0, 0x3f8},
-						{d68000_roxl_s_8, 0xf1f8, 0xe110, 0x000},
-						{d68000_roxl_s_16, 0xf1f8, 0xe150, 0x000},
-						{d68000_roxl_s_32, 0xf1f8, 0xe190, 0x000},
-						{d68000_roxl_r_8, 0xf1f8, 0xe130, 0x000},
-						{d68000_roxl_r_16, 0xf1f8, 0xe170, 0x000},
-						{d68000_roxl_r_32, 0xf1f8, 0xe1b0, 0x000},
-						{d68000_roxl_ea, 0xffc0, 0xe5c0, 0x3f8},
-						{d68010_rtd, 0xffff, 0x4e74, 0x000},
-						{d68000_rte, 0xffff, 0x4e73, 0x000},
-						{d68020_rtm, 0xfff0, 0x06c0, 0x000},
-						{d68000_rtr, 0xffff, 0x4e77, 0x000},
-						{d68000_rts, 0xffff, 0x4e75, 0x000},
-						{d68000_sbcd_rr, 0xf1f8, 0x8100, 0x000},
-						{d68000_sbcd_mm, 0xf1f8, 0x8108, 0x000},
-						{d68000_scc, 0xf0c0, 0x50c0, 0xbf8},
-						{d68000_stop, 0xffff, 0x4e72, 0x000},
-						{d68000_sub_er_8, 0xf1c0, 0x9000, 0xbff},
-						{d68000_sub_er_16, 0xf1c0, 0x9040, 0xfff},
-						{d68000_sub_er_32, 0xf1c0, 0x9080, 0xfff},
-						{d68000_sub_re_8, 0xf1c0, 0x9100, 0x3f8},
-						{d68000_sub_re_16, 0xf1c0, 0x9140, 0x3f8},
-						{d68000_sub_re_32, 0xf1c0, 0x9180, 0x3f8},
-						{d68000_suba_16, 0xf1c0, 0x90c0, 0xfff},
-						{d68000_suba_32, 0xf1c0, 0x91c0, 0xfff},
-						{d68000_subi_8, 0xffc0, 0x0400, 0xbf8},
-						{d68000_subi_16, 0xffc0, 0x0440, 0xbf8},
-						{d68000_subi_32, 0xffc0, 0x0480, 0xbf8},
-						{d68000_subq_8, 0xf1c0, 0x5100, 0xbf8},
-						{d68000_subq_16, 0xf1c0, 0x5140, 0xff8},
-						{d68000_subq_32, 0xf1c0, 0x5180, 0xff8},
-						{d68000_subx_rr_8, 0xf1f8, 0x9100, 0x000},
-						{d68000_subx_rr_16, 0xf1f8, 0x9140, 0x000},
-						{d68000_subx_rr_32, 0xf1f8, 0x9180, 0x000},
-						{d68000_subx_mm_8, 0xf1f8, 0x9108, 0x000},
-						{d68000_subx_mm_16, 0xf1f8, 0x9148, 0x000},
-						{d68000_subx_mm_32, 0xf1f8, 0x9188, 0x000},
-						{d68000_swap, 0xfff8, 0x4840, 0x000},
-						{d68000_tas, 0xffc0, 0x4ac0, 0xbf8},
-						{d68000_trap, 0xfff0, 0x4e40, 0x000},
-						{d68020_trapcc_0, 0xf0ff, 0x50fc, 0x000},
-						{d68020_trapcc_16, 0xf0ff, 0x50fa, 0x000},
-						{d68020_trapcc_32, 0xf0ff, 0x50fb, 0x000},
-						{d68000_trapv, 0xffff, 0x4e76, 0x000},
-						{d68000_tst_8, 0xffc0, 0x4a00, 0xbf8},
-						{d68020_tst_pcdi_8, 0xffff, 0x4a3a, 0x000},
-						{d68020_tst_pcix_8, 0xffff, 0x4a3b, 0x000},
-						{d68020_tst_i_8, 0xffff, 0x4a3c, 0x000},
-						{d68000_tst_16, 0xffc0, 0x4a40, 0xbf8},
-						{d68020_tst_a_16, 0xfff8, 0x4a48, 0x000},
-						{d68020_tst_pcdi_16, 0xffff, 0x4a7a, 0x000},
-						{d68020_tst_pcix_16, 0xffff, 0x4a7b, 0x000},
-						{d68020_tst_i_16, 0xffff, 0x4a7c, 0x000},
-						{d68000_tst_32, 0xffc0, 0x4a80, 0xbf8},
-						{d68020_tst_a_32, 0xfff8, 0x4a88, 0x000},
-						{d68020_tst_pcdi_32, 0xffff, 0x4aba, 0x000},
-						{d68020_tst_pcix_32, 0xffff, 0x4abb, 0x000},
-						{d68020_tst_i_32, 0xffff, 0x4abc, 0x000},
-						{d68000_unlk, 0xfff8, 0x4e58, 0x000},
-						{d68020_unpk_rr, 0xf1f8, 0x8180, 0x000},
-						{d68020_unpk_mm, 0xf1f8, 0x8188, 0x000},
-						{d68851_p000, 0xffc0, 0xf000, 0x000},
-						{d68851_pbcc16, 0xffc0, 0xf080, 0x000},
-						{d68851_pbcc32, 0xffc0, 0xf0c0, 0x000},
-						{d68851_pdbcc, 0xfff8, 0xf048, 0x000},
-						{d68851_p001, 0xffc0, 0xf040, 0x000},
-						{d68040_fbcc_16, 0xffc0, 0xf280, 0x000},
-						{d68040_fbcc_32, 0xffc0, 0xf2c0, 0x000},
-		*/
-	}
-)
-
-func validEA(ir uint16, mask uint16) bool {
-	if mask != 0 {
-		switch ir & 0x3f {
-		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07:
-			return (mask & 0x0800) != 0
-		case 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f:
-			return (mask & 0x0400) != 0
-		case 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17:
-			return (mask & 0x0200) != 0
-		case 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f:
-			return (mask & 0x0100) != 0
-		case 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27:
-			return (mask & 0x0080) != 0
-		case 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f:
-			return (mask & 0x0040) != 0
-		case 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37:
-			return (mask & 0x0020) != 0
-		case 0x38:
-			return (mask & 0x0010) != 0
-		case 0x39:
-			return (mask & 0x0008) != 0
-		case 0x3a:
-			return (mask & 0x0002) != 0
-		case 0x3b:
-			return (mask & 0x0001) != 0
-		case 0x3c:
-			return (mask & 0x0004) != 0
+	offset := int32(2)
+	for _, op := range result.operands {
+		if operand := op.size; operand != nil {
+			offset += operand.size
 		}
-		return false
 	}
-	return true
+	iter.address += offset
+
+	return result
 }
+
+func dasmInstruction(name string, address int32, ops ...dasmOperand) DasmInstruction {
+	return DasmInstruction{
+		instruction: name,
+		address:     address,
+		operands:    ops,
+	}
+}
+
+// Instruction as string
+func (di DasmInstruction) Instruction() string {
+	return di.instruction
+}
+
+// Operand1 as string if exists, otherwise empty string
+func (di DasmInstruction) Operand1() string {
+	if len(di.operands) >= 1 {
+		return di.operands[0].operand
+	} else {
+		return ""
+	}
+}
+
+// Operand2 as string if exists, otherwise empty string
+func (di DasmInstruction) Operand2() string {
+	if len(di.operands) == 2 {
+		return di.operands[1].operand
+	} else {
+		return ""
+	}
+}
+
+// Short formatted string
+func (di DasmInstruction) String() string {
+	result := fmt.Sprintf("%08x %-10s ", di.address, di.Instruction())
+	if op1 := di.Operand1(); op1 != "" {
+		result += op1
+	}
+
+	return result
+}
+
+//------------------------------------------------------------------------------
 
 func init() {
-	instructionTable = make([]func(*disasm) string, 0x10000)
-	for opcode := range instructionTable {
-		instructionTable[opcode] = d68000_illegal
-
-		for _, opInfo := range opcodeInfo {
-			if (opcode & opInfo.mask) == opInfo.match {
-
-				if opInfo.move && !validEA(eam(uint16(opcode)), 0xbf8) {
+	counter := 0
+	for i := range dasmTable {
+		opcode := uint16(i)
+		dasmTable[i] = dasmIllegal
+		for _, info := range opcodeTable {
+			if (opcode & info.mask) == info.match {
+				if info.move && !validEA(eam(uint16(opcode)), 0xbf8) {
 					continue
 				}
-				if validEA(uint16(opcode), opInfo.eaMask) {
-					instructionTable[opcode] = opInfo.handler
+				if validEA(opcode, info.eaMask) {
+					dasmTable[i] = info.dasm
+					counter++
 					break
 				}
 			}
 		}
 	}
+	log.Printf("added %d disassembler instructions", counter)
 }
+
+/*
+func dasmEAMode(s *Size, d *core) string {
+	switch ea := d.ir & 0x3f; ea {
+	case 0, 1, 2, 3, 4, 5, 6, 7:
+		return fmt.Sprintf("D%d", d.ir&7)
+	case 8, 9, 10, 11, 12, 13, 14, 15:
+		return fmt.Sprintf("A%d", d.ir&7)
+	case 16, 17, 18, 19, 20, 21, 22, 23:
+		return fmt.Sprintf("(A%d)", d.ir&7)
+	case 24, 25, 26, 27, 28, 29, 30, 31:
+		return fmt.Sprintf("(A%d)+", d.ir&7)
+	case 32, 33, 34, 35, 36, 37, 38, 39:
+		return fmt.Sprintf("-(A%d)", d.ir&7)
+
+	case 0x3c:
+		return "#" + s.SignedHexString(d.pop(s))
+	}
+
+	return "xxx not implemented xxx"
+}
+
+func d68000_illegal(d *core) (string, string) {
+	return "dc.w", fmt.Sprintf("$%04x ; illegal", d.ir)
+}
+*/
+
+//------------------------------------------------------------------------------
+
+func dasmIllegal(ir uint16, pc int32, bus AddressBus) DasmInstruction {
+	return dasmInstruction("dc.w", pc, dasmOperand{Word.HexString(int32(ir)), nil})
+}
+
+func dasmBra8(ir uint16, pc int32, bus AddressBus) DasmInstruction {
+	target := pc + int32(int8(ir)) + 2
+	return dasmInstruction("bra.s", pc, dasmOperand{Long.HexString(target), nil})
+}
+
+/*
+func dasmBra16(ir uint16, pc uint32, bus AddressBus) DasmInstruction {
+	return "bra", fmt.Sprintf("$%08x", int(d.pc)+Word.signed(d.pop(Word)))
+}
+
+func d68000_move_8(d *dasm) (string, string) {
+	return "move.b", ""
+}
+func d68000_move_16(d *dasm) (string, string) {
+	return "move", ""
+}
+func d68000_move_32(d *dasm) (string, string) {
+	return "move.l", ""
+}
+
+func d68000_movea_16(d *dasm) (string, string) {
+	return "movea", ""
+}
+
+func d68000_movea_32(d *dasm) (string, string) {
+	return "movea.l", ""
+}
+
+func d68000_move_to_sr(d *dasm) (string, string) {
+	return "move", dasmEAMode(Word, d) + ", sr"
+}
+
+/* ======================================================================== */
+/* ============================= BitOp Helpers ============================ */
+/* ======================================================================== */

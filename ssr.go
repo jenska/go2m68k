@@ -13,7 +13,7 @@ const (
 )
 
 // SSR for M68000 cpu
-type SSR struct {
+type ssr struct {
 	C, V, Z, N, X, S, T1, T0, M bool
 	Interrupts                  int
 }
@@ -25,7 +25,7 @@ func appendFlag(flag bool, name string, str string) string {
 	return str + "-"
 }
 
-func (sr SSR) String() string {
+func (sr ssr) String() string {
 	result := ""
 	result = appendFlag(sr.C, "C", result)
 	result = appendFlag(sr.V, "V", result)
@@ -41,7 +41,7 @@ func (sr SSR) String() string {
 }
 
 // Get the status register as a bitmap
-func (sr *SSR) ToBits() int {
+func (sr *ssr) bits() int {
 	result := 0
 	if sr.C {
 		result++
@@ -75,7 +75,7 @@ func (sr *SSR) ToBits() int {
 }
 
 // Set the status register as a bitmap
-func (sr *SSR) Bits(value int) {
+func (sr *ssr) setbits(value int) {
 	sr.C = (value & 1) != 0
 	sr.V = (value & 2) != 0
 	sr.Z = (value & 4) != 0
@@ -88,11 +88,11 @@ func (sr *SSR) Bits(value int) {
 	sr.Interrupts = (value & 0x0700) >> 8
 }
 
-func (sr *SSR) GetCCR() int {
-	return sr.ToBits() & 0xff
+func (sr *ssr) ccr() int {
+	return sr.bits() & 0xff
 }
 
-func (sr *SSR) SetCCR(value int) {
+func (sr *ssr) setccr(value int) {
 	sr.C = (value & 1) != 0
 	sr.V = (value & 2) != 0
 	sr.Z = (value & 4) != 0
@@ -101,7 +101,8 @@ func (sr *SSR) SetCCR(value int) {
 }
 
 // TODO: return func(result, src, dest int)
-func (sr *SSR) setFlags(opcode int, s *Size, result, src, dest int) {
+/*
+func (sr *ssr) setFlags(opcode int, s *Size, result, src, dest int) {
 	resN := s.IsNegative(result)
 	destN := s.IsNegative(dest)
 	srcN := s.IsNegative(src)
@@ -126,12 +127,13 @@ func (sr *SSR) setFlags(opcode int, s *Size, result, src, dest int) {
 		sr.X = sr.C
 		sr.V = (srcN != destN) && (resN != destN)
 	case flagZn:
-		sr.Z = sr.Z && (s.mask&uint(result)) == 0
+		sr.Z = sr.Z && (s.mask&uint32(result)) == 0
 		sr.N = resN
 	}
 }
-
-func (sr *SSR) conditionalTest(code uint32) func() bool {
+*/
+/*
+func (sr *ssr) conditionalTest(code uint32) func() bool {
 	var condition = []func() bool{
 		func() bool { return true },
 		func() bool { return false },
@@ -152,3 +154,4 @@ func (sr *SSR) conditionalTest(code uint32) func() bool {
 	}
 	return condition[code&0x0f]
 }
+*/

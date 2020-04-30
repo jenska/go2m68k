@@ -7,28 +7,28 @@ import (
 )
 
 func TestToBits(t *testing.T) {
-	ssr := SSR{}
-	assert.Equal(t, 0, ssr.ToBits())
-	ssr.S = true
-	assert.Equal(t, 0x2000, ssr.ToBits())
-	ssr.T0 = true
-	assert.Equal(t, 0x6000, ssr.ToBits())
+	sr := ssr{}
+	assert.Equal(t, 0, sr.bits())
+	sr.S = true
+	assert.Equal(t, 0x2000, sr.bits())
+	sr.T0 = true
+	assert.Equal(t, 0x6000, sr.bits())
 }
 
 func TestBits(t *testing.T) {
-	ssr := SSR{}
-	assert.Equal(t, 0, ssr.ToBits())
-	ssr.Bits(0x2000)
-	assert.True(t, ssr.S)
-	assert.Equal(t, 0x2000, ssr.ToBits())
+	sr := &ssr{}
+	assert.Equal(t, 0, sr.bits())
+	sr.setbits(0x2000)
+	assert.True(t, sr.S)
+	assert.Equal(t, 0x2000, sr.bits())
 }
 
 func TestAllBits(t *testing.T) {
-	ssr := SSR{C: true, V: true, Z: true, N: true, X: true, S: true, T1: true, T0: true, M: true,
+	ssr := ssr{C: true, V: true, Z: true, N: true, X: true, S: true, T1: true, T0: true, M: true,
 		Interrupts: 7,
 	}
-	bits := ssr.ToBits()
-	ssr.Bits(bits)
+	bits := ssr.bits()
+	ssr.setbits(bits)
 	assert.True(t, ssr.C)
 	assert.True(t, ssr.V)
 	assert.True(t, ssr.Z)
@@ -42,19 +42,19 @@ func TestAllBits(t *testing.T) {
 }
 
 func TestCCR(t *testing.T) {
-	ssr := SSR{C: true, V: true, Z: true, N: true, X: true, S: true, T1: true, T0: true, M: true,
+	ssr := ssr{C: true, V: true, Z: true, N: true, X: true, S: true, T1: true, T0: true, M: true,
 		Interrupts: 7,
 	}
-	bits := ssr.ToBits()
-	ccr := ssr.GetCCR()
+	bits := ssr.bits()
+	ccr := ssr.ccr()
 	assert.Equal(t, bits&0xff, ccr)
 
-	ssr.SetCCR(bits)
-	bits2 := ssr.ToBits()
+	ssr.setccr(bits)
+	bits2 := ssr.bits()
 	assert.Equal(t, bits, bits2)
 
 	ssr.S = false
-	bits = ssr.ToBits()
-	ccr = ssr.GetCCR()
+	bits = ssr.bits()
+	ccr = ssr.ccr()
 	assert.Equal(t, bits&0xff, ccr)
 }

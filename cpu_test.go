@@ -7,106 +7,57 @@ import (
 )
 
 func TestRead(t *testing.T) {
-	cpu := NewCPU().AddBaseArea(0x1000, 1000, 3000).Go()
-
-	assert.Equal(t, uint32(0x1000), cpu.readAddress(0))
-	assert.Equal(t, 0x00, cpu.read(0, Byte))
-	assert.Equal(t, 0x1000, cpu.read(2, Word))
-	assert.Equal(t, 0x1000, cpu.read(0, Long))
+	assert.Equal(t, initialSSP, tcpu.readAddress(0))
+	assert.Equal(t, initialSSP&0xff, tcpu.read(3, Byte))
+	assert.Equal(t, initialSSP&0xffff, tcpu.read(2, Word))
+	assert.Equal(t, initialSSP, tcpu.read(0, Long))
 	// bounds overflow
-	assert.Equal(t, uint32(0x1000), cpu.readAddress(0x12000000))
-
-	cpu.Halt <- true
+	assert.Equal(t, initialSSP, tcpu.readAddress(0x12000000))
 }
 
 func TestReadWrite(t *testing.T) {
-	cpu := NewCPU().AddBaseArea(2000, 1000, 3000).Go()
-
 	assert.Panics(t, func() {
-		cpu.write(0, Long, 400)
+		tcpu.write(0, Long, 400)
 	})
 	assert.Panics(t, func() {
-		cpu.write(4, Long, 400)
+		tcpu.write(4, Long, 400)
 	})
-	assert.Equal(t, uint32(2000), cpu.readAddress(0))
-	assert.Equal(t, uint32(1000), cpu.readAddress(4))
+	assert.Equal(t, initialSSP, tcpu.readAddress(0))
+	assert.Equal(t, initialPC, tcpu.readAddress(4))
 
-	cpu.write(100, Long, 3)
-	assert.Equal(t, uint32(3), cpu.readAddress(100))
-	assert.Equal(t, 3, cpu.read(103, Byte))
-	assert.Equal(t, 3, cpu.read(102, Word))
-	assert.Equal(t, 3, cpu.read(100, Long))
-
-	cpu.Halt <- true
+	tcpu.write(100, Long, 3)
+	assert.Equal(t, int32(3), tcpu.readAddress(100))
+	assert.Equal(t, int32(3), tcpu.read(103, Byte))
+	assert.Equal(t, int32(3), tcpu.read(102, Word))
+	assert.Equal(t, int32(3), tcpu.read(100, Long))
 }
 
 func TestReset(t *testing.T) {
-	cpu := NewCPU().AddBaseArea(2000, 1000, 3000).Go()
-
-	cpu.Reset <- true
-	cpu.trace <- func() {
-		assert.True(t, cpu.SR.S)
-		assert.Equal(t, uint32(1000), cpu.PC)
-		assert.Equal(t, uint32(2000), cpu.SSP)
-		assert.Equal(t, 0x2700, cpu.SR.ToBits())
-	}
-
-	cpu.Halt <- true
-}
-
-func TestHalt(t *testing.T) {
-	cpu := NewCPU().AddBaseArea(2000, 1000, 3000).Go()
-	cpu.trace <- func() {
-		assert.True(t, cpu.IsRunning)
-	}
-	cpu.Halt <- true
-	assert.False(t, cpu.IsRunning)
+	tcpu.Reset()
+	assert.True(t, tcpu.sr.S)
+	assert.Equal(t, initialPC, tcpu.pc)
+	assert.Equal(t, initialSSP, tcpu.ssp)
+	assert.Equal(t, 0x2700, tcpu.sr.bits())
 }
 
 func TestException_raiseException(t *testing.T) {
-	cpu := NewCPU().AddBaseArea(2000, 1000, 3000).Go()
-
-	cpu.write(PrivilegeViolationError<<2, Long, 500)
-
-	cpu.Reset <- true
-	cpu.trace <- func() {
-		cpu.raiseException(PrivilegeViolationError)
-		assert.Equal(t, uint32(500), cpu.PC)
-	}
-	assert.True(t, cpu.IsRunning)
-}
-
-func TestInternalRead(t *testing.T) {
-	cpu := NewCPU().AddBaseArea(2000, 1000, 3000).Go()
-	assert.NotNil(t, cpu.bus)
-	cpu.bus.Read(0, Word)
-	cpu.Halt <- true
+	tcpu.Reset()
+	tcpu.write(int32(PrivilegeViolationError)<<2, Long, 500)
+	tcpu.raiseException(PrivilegeViolationError)
+	assert.Equal(t, int32(500), tcpu.pc)
 }
 
 func TestBuilder(t *testing.T) {
-	builder := NewCPU()
+	builder := NewAddressBusBuilder()
 	assert.Panics(t, func() {
-		builder.AddArea(0, 0, NewRAMArea("test", 100))
+		builder.AddArea(0, 0, NewRAMArea(100))
 	})
-
-	assert.Panics(t, func() {
-		builder.Build()
-	})
-
-	cpu := builder.AddBaseArea(2000, 1000, 3000).Build()
-	assert.Panics(t, func() {
-		cpu.AddArea(0, 1, nil)
-	})
-	assert.Panics(t, func() {
-		cpu.AddArea(0, 0, NewRAMArea("test", 100))
-	})
-
 }
 
 func TestPrivileViolationException(t *testing.T) {
-	oldS := tcpu.SR.S
-	tcpu.SR.S = false
-	defer func() { tcpu.SR.S = oldS }()
+	oldS := tcpu.sr.S
+	tcpu.sr.S = false
+	defer func() { tcpu.sr.S = oldS }()
 
 	tcpu.read(0, Long)
 	tcpu.read(4, Long)
@@ -120,7 +71,7 @@ func TestPrivileViolationException(t *testing.T) {
 		tcpu.write(100, Long, 0)
 	})
 
-	tcpu.SR.S = true
+	tcpu.sr.S = true
 	assert.NotPanics(t, func() {
 		tcpu.write(100, Long, oldV)
 	})
@@ -146,8 +97,13 @@ func TestAddressError(t *testing.T) {
 }
 
 func TestPop(t *testing.T) {
-	assert.NotEqual(t, 0, tcpu.A[7])
+	assert.NotEqual(t, 0, tcpu.a[7])
 	tcpu.push(Long, 1001)
-	assert.Equal(t, 1001, tcpu.pop(Long))
+	assert.Equal(t, int32(1001), tcpu.pop(Long))
+}
 
+func TestBra8(t *testing.T) {
+	tcpu.pc = romTop
+	tcpu.Step()
+	assert.Equal(t, romTop+0x30, tcpu.pc)
 }
