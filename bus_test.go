@@ -129,4 +129,5 @@ func TestCache(t *testing.T) {
 			io.write(16000, Long, 0)
 		}
 	}
+	io.reset()
 }

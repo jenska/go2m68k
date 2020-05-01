@@ -74,7 +74,10 @@ func (aaq *addressAreaQueue) Build() AddressBus {
 }
 
 // NewAddressArea creates a new AddressArea with accessors read, write and resetHandler
-// If a read/write accessor is nil, the access to the address area will panic a BusError
+// Build behaviour:
+// read accessor is mandatory
+// Runtime behaviour:
+// If a write accessor is nil, the access to the address area will panic a BusError
 // If reset is nil, no reset will be perfomed
 func NewAddressArea(read Reader, write Writer, reset Reset) *AddressArea {
 	if read == nil {
@@ -121,6 +124,9 @@ func NewRAMArea(size uint32) *AddressArea {
 
 // NewBaseArea returns a new M68K base address area starting at address 0
 func NewBaseArea(ssp, pc int32, size uint32) *AddressArea {
+	if size < 8 {
+		panic("size must be at least 8 bytes")
+	}
 	ram := make([]byte, size)
 	Long.write(ram[0:], ssp)
 	Long.write(ram[4:], pc)
