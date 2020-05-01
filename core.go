@@ -7,6 +7,8 @@ type (
 	Error int32
 	// Type of CPU
 	Type int32
+	// Signal external CPU events
+	Signal int32
 
 	// Reader accessor for read accesses
 	Reader func(int32, *Size) int32
@@ -69,6 +71,9 @@ const (
 	ZeroDivideError         Error = 5
 	PrivilegeViolationError Error = 8
 	UnintializedInterrupt   Error = 15
+
+	HaltSignal Signal = iota
+	ResetSignal
 )
 
 var opcodeTable = []opcodeInfo{

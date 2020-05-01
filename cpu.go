@@ -1,6 +1,9 @@
 package cpu
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 // TODO:
 //  add cpu cycles
@@ -12,6 +15,7 @@ type (
 	// M68K CPU core
 	M68K struct {
 		instructions [0x10000]instruction
+		icount       int // overall instructions performend
 
 		bus   AddressBus
 		read  Reader
@@ -25,6 +29,8 @@ type (
 
 		ssp, usp int32 // Supervisoro Stackpointer#
 		sr       ssr   // Supervisor Status Register (+ CCR)
+
+		stopped bool // stopped state
 	}
 )
 
@@ -42,18 +48,46 @@ func (cpu *M68K) String() string {
 	return result
 }
 
-// Step through a single instruction
-func (cpu *M68K) Step() *M68K {
-	defer func() {
-		if r := recover(); r != nil {
-			if err, ok := r.(Error); ok {
-				cpu.raiseException(err)
-			}
+func (cpu *M68K) catchError() {
+	if r := recover(); r != nil {
+		if err, ok := r.(Error); ok {
+			cpu.raiseException(err)
+		} else {
+			log.Print(err)
+			cpu.stopped = true
 		}
-	}()
+	}
+}
+
+func (cpu *M68K) step() *M68K {
 	cpu.ir = uint16(cpu.popPC(Word))
 	cpu.instructions[cpu.ir](cpu)
+	cpu.icount++
 	return cpu
+}
+
+// Run until halted
+func (cpu *M68K) Run(signals <-chan Signal) {
+	defer cpu.catchError()
+	for !cpu.stopped {
+		select {
+		case signal := <-signals:
+			if signal == ResetSignal {
+				cpu.Reset()
+			} else if signal == HaltSignal {
+				cpu.stopped = true
+				break
+			}
+		default:
+			cpu.step()
+		}
+	}
+}
+
+// Step through a single instruction
+func (cpu *M68K) Step() *M68K {
+	defer cpu.catchError()
+	return cpu.step()
 }
 
 // Reset sets the cpu back to initial state
@@ -62,6 +96,7 @@ func (cpu *M68K) Reset() {
 	cpu.sr.setbits(0x2700)
 	cpu.ssp, cpu.pc = cpu.readAddress(0), cpu.readAddress(4)
 	cpu.a[7] = cpu.ssp
+	cpu.stopped = false
 }
 
 func (cpu *M68K) raiseException(err Error) {
@@ -74,13 +109,13 @@ func (cpu *M68K) raiseException(err Error) {
 	cpu.push(Long, cpu.pc)
 	cpu.push(Word, int32(oldSR.bits()))
 
-	if xaddr := cpu.readAddress(int32(err) << 2); xaddr == 0 {
+	xaddr := cpu.readAddress(int32(err) << 2)
+	if xaddr == 0 {
 		if xaddr = cpu.readAddress(int32(UnintializedInterrupt) << 2); xaddr == 0 {
-			// TODO			cpu.Halt <- true
+			panic("Interrupt vector not set for uninitialised interrupt vector")
 		}
-	} else {
-		cpu.pc = xaddr
 	}
+	cpu.pc = xaddr
 }
 
 //------------------------------------------------------------------------------

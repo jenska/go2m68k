@@ -40,18 +40,24 @@ func TestReset(t *testing.T) {
 	assert.Equal(t, 0x2700, tcpu.sr.bits())
 }
 
-func TestException_raiseException(t *testing.T) {
+func TestRaiseException(t *testing.T) {
 	tcpu.Reset()
 	tcpu.write(int32(PrivilegeViolationError)<<2, Long, 500)
 	tcpu.raiseException(PrivilegeViolationError)
 	assert.Equal(t, int32(500), tcpu.pc)
-}
 
-func TestBuilder(t *testing.T) {
-	builder := NewAddressBusBuilder()
 	assert.Panics(t, func() {
-		builder.AddArea(0, 0, NewRAMArea(100))
+		tcpu.raiseException(ZeroDivideError)
 	})
+
+	tcpu.write(int32(UnintializedInterrupt)<<2, Long, 600)
+	tcpu.raiseException(ZeroDivideError)
+	assert.Equal(t, int32(600), tcpu.pc)
+
+	tcpu.sr.S = false
+	tcpu.raiseException(ZeroDivideError)
+	assert.Equal(t, int32(600), tcpu.pc)
+	assert.True(t, tcpu.sr.S)
 }
 
 func TestPrivileViolationException(t *testing.T) {
