@@ -15,7 +15,7 @@ const (
 // SSR for M68000 cpu
 type ssr struct {
 	C, V, Z, N, X, S, T1, T0, M bool
-	Interrupts                  int
+	Interrupts                  int32
 }
 
 func appendFlag(flag bool, name string, str string) string {
@@ -36,13 +36,13 @@ func (sr ssr) String() string {
 	result = appendFlag(sr.T1, "T", result)
 	result = appendFlag(sr.T0, "0", result)
 	result = appendFlag(sr.N, "M", result)
-	result += strconv.Itoa(sr.Interrupts)
+	result += strconv.Itoa(int(sr.Interrupts))
 	return result
 }
 
 // Get the status register as a bitmap
-func (sr *ssr) bits() int {
-	result := 0
+func (sr *ssr) bits() int32 {
+	var result int32 = 0
 	if sr.C {
 		result++
 	}
@@ -75,7 +75,7 @@ func (sr *ssr) bits() int {
 }
 
 // Set the status register as a bitmap
-func (sr *ssr) setbits(value int) {
+func (sr *ssr) setbits(value int32) {
 	sr.C = (value & 1) != 0
 	sr.V = (value & 2) != 0
 	sr.Z = (value & 4) != 0
@@ -88,16 +88,23 @@ func (sr *ssr) setbits(value int) {
 	sr.Interrupts = (value & 0x0700) >> 8
 }
 
-func (sr *ssr) ccr() int {
+func (sr *ssr) ccr() int32 {
 	return sr.bits() & 0xff
 }
 
-func (sr *ssr) setccr(value int) {
+func (sr *ssr) setccr(value int32) {
 	sr.C = (value & 1) != 0
 	sr.V = (value & 2) != 0
 	sr.Z = (value & 4) != 0
 	sr.N = (value & 8) != 0
 	sr.X = (value & 16) != 0
+}
+
+func (sr *ssr) setLogicalFlags(data int32) {
+	sr.N = data < 0
+	sr.Z = data == 0
+	sr.V = false
+	sr.C = false
 }
 
 // TODO: return func(result, src, dest int)

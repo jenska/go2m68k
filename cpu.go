@@ -37,11 +37,11 @@ type (
 func (cpu *M68K) String() string {
 	result := fmt.Sprintf("SR %s PC %08x USP %08x SSP %08x\n", cpu.sr, cpu.pc, cpu.usp, cpu.ssp)
 	for i := range cpu.d {
-		result += fmt.Sprintf("D%d %08x ", i, cpu.d[i])
+		result += fmt.Sprintf("D%d %08x ", i, uint32(cpu.d[i]))
 	}
 	result += "\n"
 	for i := range cpu.a {
-		result += fmt.Sprintf("A%d %08x ", i, cpu.a[i])
+		result += fmt.Sprintf("A%d %08x ", i, uint32(cpu.a[i]))
 	}
 	result += "\n"
 
@@ -69,6 +69,7 @@ func (cpu *M68K) step() *M68K {
 // Run until halted
 func (cpu *M68K) Run(signals <-chan Signal) {
 	defer cpu.catchError()
+	cpu.stopped = false
 	for !cpu.stopped {
 		select {
 		case signal := <-signals:
@@ -97,6 +98,7 @@ func (cpu *M68K) Reset() {
 	cpu.ssp, cpu.pc = cpu.readAddress(0), cpu.readAddress(4)
 	cpu.a[7] = cpu.ssp
 	cpu.stopped = false
+	cpu.icount = 0
 }
 
 func (cpu *M68K) raiseException(err Error) {
@@ -116,14 +118,4 @@ func (cpu *M68K) raiseException(err Error) {
 		}
 	}
 	cpu.pc = xaddr
-}
-
-//------------------------------------------------------------------------------
-
-func bra8(c *M68K) {
-	c.pc += int32(int8(c.ir))
-}
-
-func bra16(c *M68K) {
-	c.pc += c.popPC(Word)
 }

@@ -18,6 +18,7 @@ type (
 		operands    []dasmOperand
 	}
 
+	// DasmIterator iterates over DasmInstruction
 	DasmIterator struct {
 		bus     AddressBus
 		address int32
@@ -28,11 +29,12 @@ type (
 
 var dasmTable = make([]dasm, 0x10000)
 
-// Disassemble an M68K instruction
+// Disassembler returns an M68K DasmIterator
 func Disassembler(pc int32, bus AddressBus) *DasmIterator {
 	return &DasmIterator{bus, pc}
 }
 
+// Next disassembled instruction
 func (iter *DasmIterator) Next() DasmInstruction {
 	ir := uint16(iter.bus.read(iter.address, Word))
 	result := dasmTable[ir](ir, iter.address, iter.bus)
@@ -65,25 +67,26 @@ func (di DasmInstruction) Instruction() string {
 func (di DasmInstruction) Operand1() string {
 	if len(di.operands) >= 1 {
 		return di.operands[0].operand
-	} else {
-		return ""
 	}
+	return ""
 }
 
 // Operand2 as string if exists, otherwise empty string
 func (di DasmInstruction) Operand2() string {
 	if len(di.operands) == 2 {
 		return di.operands[1].operand
-	} else {
-		return ""
 	}
+	return ""
 }
 
 // Short formatted string
 func (di DasmInstruction) String() string {
 	result := fmt.Sprintf("%08x %-10s ", di.address, di.Instruction())
-	if op1 := di.Operand1(); op1 != "" {
-		result += op1
+	if op := di.Operand1(); op != "" {
+		result += op
+	}
+	if op := di.Operand2(); op != "" {
+		result += ", " + op
 	}
 
 	return result
@@ -102,6 +105,7 @@ func init() {
 					continue
 				}
 				if validEA(opcode, info.eaMask) {
+					// log.Printf("%04x %+v\n", opcode, info)
 					dasmTable[i] = info.dasm
 					counter++
 					break
@@ -112,32 +116,6 @@ func init() {
 	log.Printf("added %d disassembler instructions", counter)
 }
 
-/*
-func dasmEAMode(s *Size, d *core) string {
-	switch ea := d.ir & 0x3f; ea {
-	case 0, 1, 2, 3, 4, 5, 6, 7:
-		return fmt.Sprintf("D%d", d.ir&7)
-	case 8, 9, 10, 11, 12, 13, 14, 15:
-		return fmt.Sprintf("A%d", d.ir&7)
-	case 16, 17, 18, 19, 20, 21, 22, 23:
-		return fmt.Sprintf("(A%d)", d.ir&7)
-	case 24, 25, 26, 27, 28, 29, 30, 31:
-		return fmt.Sprintf("(A%d)+", d.ir&7)
-	case 32, 33, 34, 35, 36, 37, 38, 39:
-		return fmt.Sprintf("-(A%d)", d.ir&7)
-
-	case 0x3c:
-		return "#" + s.SignedHexString(d.pop(s))
-	}
-
-	return "xxx not implemented xxx"
-}
-
-func d68000_illegal(d *core) (string, string) {
-	return "dc.w", fmt.Sprintf("$%04x ; illegal", d.ir)
-}
-*/
-
 //------------------------------------------------------------------------------
 
 func dasmIllegal(ir uint16, pc int32, bus AddressBus) DasmInstruction {
@@ -147,6 +125,21 @@ func dasmIllegal(ir uint16, pc int32, bus AddressBus) DasmInstruction {
 func dasmBra8(ir uint16, pc int32, bus AddressBus) DasmInstruction {
 	target := pc + int32(int8(ir)) + 2
 	return dasmInstruction("bra.s", pc, dasmOperand{Long.HexString(target), nil})
+}
+
+func dasmDbra(ir uint16, pc int32, bus AddressBus) DasmInstruction {
+	target := pc + int32(int8(ir)) + 2
+	return dasmInstruction("bra.s", pc, dasmOperand{Long.HexString(target), nil})
+}
+func dasmStop(ir uint16, pc int32, bus AddressBus) DasmInstruction {
+	target := pc + int32(int8(ir)) + 2
+	return dasmInstruction("bra.s", pc, dasmOperand{Long.HexString(target), nil})
+}
+
+func dasmMoveq(ir uint16, pc int32, bus AddressBus) DasmInstruction {
+	op1 := dasmOperand{fmt.Sprintf("d[%v]", (ir>>9)&7), nil}
+	op2 := dasmOperand{fmt.Sprintf("#%s", Long.SignedHexString(int32(int8(ir)))), nil}
+	return dasmInstruction("moveq", pc, op1, op2)
 }
 
 /*

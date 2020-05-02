@@ -8,19 +8,19 @@ import (
 
 func TestToBits(t *testing.T) {
 	sr := ssr{}
-	assert.Equal(t, 0, sr.bits())
+	assert.Equal(t, int32(0), sr.bits())
 	sr.S = true
-	assert.Equal(t, 0x2000, sr.bits())
+	assert.Equal(t, int32(0x2000), sr.bits())
 	sr.T0 = true
-	assert.Equal(t, 0x6000, sr.bits())
+	assert.Equal(t, int32(0x6000), sr.bits())
 }
 
 func TestBits(t *testing.T) {
 	sr := &ssr{}
-	assert.Equal(t, 0, sr.bits())
+	assert.Equal(t, int32(0), sr.bits())
 	sr.setbits(0x2000)
 	assert.True(t, sr.S)
-	assert.Equal(t, 0x2000, sr.bits())
+	assert.Equal(t, int32(0x2000), sr.bits())
 }
 
 func TestAllBits(t *testing.T) {
@@ -38,7 +38,7 @@ func TestAllBits(t *testing.T) {
 	assert.True(t, ssr.T1)
 	assert.True(t, ssr.T0)
 	assert.True(t, ssr.M)
-	assert.Equal(t, 7, ssr.Interrupts)
+	assert.Equal(t, int32(7), ssr.Interrupts)
 }
 
 func TestCCR(t *testing.T) {

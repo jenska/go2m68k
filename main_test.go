@@ -35,5 +35,7 @@ func TestMain(m *testing.M) {
 	builder.SetISA68000()
 	tcpu = builder.Build()
 	log.Println(tcpu)
-	os.Exit(m.Run())
+	result := m.Run()
+	log.Println(tcpu)
+	os.Exit(result)
 }

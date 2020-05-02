@@ -51,7 +51,7 @@ var (
 			binary.BigEndian.PutUint16(slice, uint16(value))
 		},
 		read: func(slice []byte) int32 {
-			return int32(binary.BigEndian.Uint16(slice))
+			return int32(int16(binary.BigEndian.Uint16(slice)))
 		},
 	}
 
@@ -91,4 +91,9 @@ func (s *Size) SignedHexString(value int32) string {
 		return "-" + s.HexString(-value)
 	}
 	return s.HexString(value)
+}
+
+func (s *Size) set(value int32, target *int32) {
+	result := (uint32(*target) & ^s.mask) | (uint32(value) & s.mask)
+	*target = int32(result)
 }

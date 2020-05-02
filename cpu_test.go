@@ -1,6 +1,7 @@
 package cpu
 
 import (
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,7 @@ func TestReset(t *testing.T) {
 	assert.True(t, tcpu.sr.S)
 	assert.Equal(t, initialPC, tcpu.pc)
 	assert.Equal(t, initialSSP, tcpu.ssp)
-	assert.Equal(t, 0x2700, tcpu.sr.bits())
+	assert.Equal(t, int32(0x2700), tcpu.sr.bits())
 }
 
 func TestRaiseException(t *testing.T) {
@@ -109,7 +110,115 @@ func TestPop(t *testing.T) {
 }
 
 func TestBra8(t *testing.T) {
+	tcpu.Reset()
 	tcpu.pc = romTop
 	tcpu.Step()
 	assert.Equal(t, romTop+0x30, tcpu.pc)
+	assert.Equal(t, 1, tcpu.icount)
+}
+
+func TestMoveq(t *testing.T) {
+	tcpu.Reset()
+
+	tcpu.write(0x4000, Word, 0x7000) // moveq #0, d0
+	tcpu.write(0x4002, Word, 0x7001) // moveq #1, d0
+	tcpu.write(0x4004, Word, 0x7200) // moveq #0, d1
+	tcpu.write(0x4006, Word, 0x7201) // moveq #1, d1
+	tcpu.write(0x4008, Word, 0x70FF) // moveq #-1, d0
+	tcpu.write(0x400A, Word, 0x72FF) // moveq #-1, d1
+
+	tcpu.pc = 0x4000
+	tcpu.Step()
+	assert.Equal(t, int32(0), tcpu.d[0])
+	assert.True(t, tcpu.sr.Z)
+
+	assert.Equal(t, int32(0x4002), tcpu.pc)
+	tcpu.Step()
+	assert.Equal(t, int32(1), tcpu.d[0])
+	assert.False(t, tcpu.sr.Z)
+
+	assert.Equal(t, int32(0x4004), tcpu.pc)
+	tcpu.Step()
+	assert.Equal(t, int32(1), tcpu.d[0])
+	assert.Equal(t, int32(0), tcpu.d[1])
+	assert.True(t, tcpu.sr.Z)
+
+	assert.Equal(t, int32(0x4006), tcpu.pc)
+	tcpu.Step()
+	assert.Equal(t, int32(1), tcpu.d[0])
+	assert.Equal(t, int32(1), tcpu.d[1])
+	assert.False(t, tcpu.sr.Z)
+
+	assert.Equal(t, int32(0x4008), tcpu.pc)
+	tcpu.Step()
+	assert.Equal(t, int32(-1), tcpu.d[0])
+	assert.Equal(t, int32(1), tcpu.d[1])
+	assert.False(t, tcpu.sr.Z)
+	assert.True(t, tcpu.sr.N)
+
+	assert.Equal(t, int32(0x400A), tcpu.pc)
+	tcpu.Step()
+	assert.Equal(t, int32(-1), tcpu.d[0])
+	assert.Equal(t, int32(-1), tcpu.d[1])
+	assert.False(t, tcpu.sr.Z)
+	assert.True(t, tcpu.sr.N)
+}
+
+func TestDbra(t *testing.T) {
+	tcpu.write(0x4000, Word, 0x7005) // moveq #5, d0
+	tcpu.write(0x4002, Word, 0x51c8) // dbra d0,
+	tcpu.write(0x4004, Word, 0xfffe) // -2
+	tcpu.write(0x4006, Word, 0x7201) // moveq #1, d1
+	tcpu.write(0x4008, Word, 0x70FF) // moveq #-1, d0
+	tcpu.write(0x400A, Word, 0x72FF) // moveq #-1, d1
+
+	tcpu.pc = 0x4000
+	tcpu.Step()
+	for i := 5; i > 0; i-- {
+		assert.Equal(t, int32(i), tcpu.d[0])
+		assert.Equal(t, int32(0x4002), tcpu.pc)
+		tcpu.Step()
+		assert.Equal(t, int32(0x4002), tcpu.pc)
+	}
+	tcpu.Step()
+	assert.Equal(t, int32(0x4006), tcpu.pc)
+
+	tcpu.write(0x4000, Word, 0x7000+100) // moveq #100, d0
+	tcpu.write(0x4002, Word, 0x7200+100) // moveq #100, d1
+	tcpu.write(0x4004, Word, 0x51c9)     // dbra d1,
+	tcpu.write(0x4006, Word, 0xfffe)     // -2
+	tcpu.write(0x4008, Word, 0x51c8)     // dbra d0,
+	tcpu.write(0x400a, Word, 0xfff8)     // -8
+	tcpu.write(0x400c, Word, 0x4e72)     // stop
+	tcpu.write(0x400e, Word, 0x2700)     // #$27000
+	tcpu.pc = 0x4000
+	signals := make(chan Signal)
+	tcpu.Run(signals)
+}
+
+func TestStop(t *testing.T) {
+	signals := make(chan Signal)
+	tcpu.write(0x400c, Word, 0x4e72) // stop
+	tcpu.write(0x400e, Word, 0x2000) // #$27000
+	tcpu.pc = 0x400c
+	tcpu.Run(signals)
+	assert.True(t, tcpu.stopped)
+	assert.Equal(t, int32(0x2000), tcpu.sr.bits())
+}
+
+func BenchmarkDbra(b *testing.B) {
+	tcpu.write(0x4000, Word, 0x7000+100) // moveq #100, d0
+	tcpu.write(0x4002, Word, 0x7200+100) // moveq #100, d1
+	tcpu.write(0x4004, Word, 0x51c9)     // dbra d1,
+	tcpu.write(0x4006, Word, 0xfffe)     // -2
+	tcpu.write(0x4008, Word, 0x51c8)     // dbra d0,
+	tcpu.write(0x400a, Word, 0xfff8)     // -8
+	tcpu.write(0x400c, Word, 0x4e72)     // stop
+	tcpu.write(0x400e, Word, 0x2700)     // #$27000
+	signals := make(chan Signal)
+	for j := 0; j < b.N; j++ {
+		tcpu.pc = 0x4000
+		tcpu.Run(signals)
+	}
+	log.Println(tcpu.icount, b.N)
 }

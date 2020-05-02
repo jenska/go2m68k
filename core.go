@@ -74,20 +74,30 @@ const (
 
 	HaltSignal Signal = iota
 	ResetSignal
+	Int1Signal
+	Int2Signal
+	Int3Signal
+	Int4Signal
+	Int5Signal
+	Int6Singal
+	Int7Signal
 )
 
 var opcodeTable = []opcodeInfo{
 	{bra8, dasmBra8, M68000, 0xff00, 0x6000, 0x000, false},
 	//	{bra16, dasmBra16, M68000, 0xffff, 0x6000, 0x000, false},
+	{moveq, dasmMoveq, M68000, 0xf100, 0x7000, 0x000, false},
+	{dbra, dasmDbra, M68000, 0xfff8, 0x51c8, 0x000, false},
+	{stop, dasmStop, M68000, 0xffff, 0x4e72, 0x000, false},
 }
 
 func (e Error) Error() string {
 	return fmt.Sprintf("CPU error %v", int32(e))
 }
 
-func eax(ir uint16) uint16 { return (ir >> 9) & 7 }
 func eay(ir uint16) uint16 { return ir & 7 }
 func eam(ir uint16) uint16 { return eax(ir) | ((ir >> 3) & 0x38) }
+func eax(ir uint16) uint16 { return (ir >> 9) & 7 }
 
 func validEA(ir uint16, mask uint16) bool {
 	if mask != 0 {
@@ -245,7 +255,6 @@ func validEA(ir uint16, mask uint16) bool {
     {d68020_cptrapcc_32, 0xf1ff, 0xf07b, 0x000},
     {d68040_cpush, 0xff20, 0xf420, 0x000},
     {d68000_dbcc, 0xf0f8, 0x50c8, 0x000},
-    {d68000_dbra, 0xfff8, 0x51c8, 0x000},
     {d68000_divs, 0xf1c0, 0x81c0, 0xbff},
     {d68000_divu, 0xf1c0, 0x80c0, 0xbff},
     {d68020_divl, 0xffc0, 0x4c40, 0xbff},
@@ -309,7 +318,6 @@ func validEA(ir uint16, mask uint16) bool {
         {d68010_moves_8, 0xffc0, 0x0e00, 0x3f8},
         {d68010_moves_16, 0xffc0, 0x0e40, 0x3f8},
         {d68010_moves_32, 0xffc0, 0x0e80, 0x3f8},
-        {d68000_moveq, 0xf100, 0x7000, 0x000},
         {d68040_move16_pi_pi, 0xfff8, 0xf620, 0x000},
         {d68040_move16_pi_al, 0xfff8, 0xf600, 0x000},
         {d68040_move16_al_pi, 0xfff8, 0xf608, 0x000},
@@ -381,7 +389,6 @@ func validEA(ir uint16, mask uint16) bool {
         {d68000_sbcd_rr, 0xf1f8, 0x8100, 0x000},
         {d68000_sbcd_mm, 0xf1f8, 0x8108, 0x000},
         {d68000_scc, 0xf0c0, 0x50c0, 0xbf8},
-        {d68000_stop, 0xffff, 0x4e72, 0x000},
         {d68000_sub_er_8, 0xf1c0, 0x9000, 0xbff},
         {d68000_sub_er_16, 0xf1c0, 0x9040, 0xfff},
         {d68000_sub_er_32, 0xf1c0, 0x9080, 0xfff},
