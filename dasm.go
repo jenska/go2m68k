@@ -142,6 +142,10 @@ func dasmMoveq(ir uint16, pc int32, bus AddressBus) DasmInstruction {
 	return dasmInstruction("moveq", pc, op1, op2)
 }
 
+func dasmNop(ir uint16, pc int32, bus AddressBus) DasmInstruction {
+	return dasmInstruction("nop", pc)
+}
+
 /*
 func dasmBra16(ir uint16, pc uint32, bus AddressBus) DasmInstruction {
 	return "bra", fmt.Sprintf("$%08x", int(d.pc)+Word.signed(d.pop(Word)))

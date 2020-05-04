@@ -89,6 +89,7 @@ var opcodeTable = []opcodeInfo{
 	{moveq, dasmMoveq, M68000, 0xf100, 0x7000, 0x000, false},
 	{dbra, dasmDbra, M68000, 0xfff8, 0x51c8, 0x000, false},
 	{stop, dasmStop, M68000, 0xffff, 0x4e72, 0x000, false},
+	{nop, dasmNop, M68000, 0xffff, 0x4e71, 0x000, false},
 }
 
 func (e Error) Error() string {
@@ -333,7 +334,6 @@ func validEA(ir uint16, mask uint16) bool {
         {d68000_negx_8, 0xffc0, 0x4000, 0xbf8},
         {d68000_negx_16, 0xffc0, 0x4040, 0xbf8},
         {d68000_negx_32, 0xffc0, 0x4080, 0xbf8},
-        {d68000_nop, 0xffff, 0x4e71, 0x000},
         {d68000_not_8, 0xffc0, 0x4600, 0xbf8},
         {d68000_not_16, 0xffc0, 0x4640, 0xbf8},
         {d68000_not_32, 0xffc0, 0x4680, 0xbf8},

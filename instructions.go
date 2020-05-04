@@ -37,9 +37,11 @@ func stop(c *M68K) {
 		c.sr.setbits(c.popPC(Word))
 		c.stopped = true
 	} else {
-		c.raiseException(PrivilegeViolationError)
+		panic(PrivilegeViolationError)
 	}
 }
+
+func nop(c *M68K) {}
 
 //------------------------------------------------------------------------------
 
@@ -47,22 +49,23 @@ func stop(c *M68K) {
 func (cpu *M68K) SetISA68000() Builder {
 	// Address Bus Mask for 68000 CPU
 	const busMask = 0x00ffffff
+	c := cpu
 
 	cpu.read = func(a int32, s *Size) int32 {
 		if a&1 == 1 && s != Byte {
 			panic(AdressError)
 		}
-		return cpu.bus.read(a&busMask, s)
+		return c.bus.read(a&busMask, s)
 	}
 
 	cpu.write = func(a int32, s *Size, value int32) {
 		if a&1 == 1 && s != Byte {
 			panic(AdressError)
 		}
-		if !cpu.sr.S && a < 0x800 {
+		if !c.sr.S && a < 0x800 {
 			panic(PrivilegeViolationError)
 		}
-		cpu.bus.write(a&busMask, s, value)
+		c.bus.write(a&busMask, s, value)
 	}
 
 	// // TODO: reusable method for other cpu types

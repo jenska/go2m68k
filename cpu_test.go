@@ -204,6 +204,12 @@ func TestStop(t *testing.T) {
 	tcpu.Run(signals)
 	assert.True(t, tcpu.stopped)
 	assert.Equal(t, int32(0x2000), tcpu.sr.bits())
+
+	tcpu.pc = 0x400c
+	tcpu.sr.S = false
+	assert.Panics(t, func() {
+		tcpu.Run(signals)
+	})
 }
 
 func BenchmarkDbra(b *testing.B) {
