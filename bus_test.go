@@ -81,7 +81,7 @@ func TestROM(t *testing.T) {
 		rom[i] = 1
 	}
 	page1 := NewROMArea(rom)
-	io := NewAddressBusBuilder().AddArea(0, 1024, page1).Build()
+	io := NewAddressBusBuilder().AddArea(0, 0x10000, page1).Build()
 	assert.Panics(t, func() {
 		io.write(0, Long, 0)
 	})
@@ -109,12 +109,12 @@ func TestROM(t *testing.T) {
 }
 
 func TestCache(t *testing.T) {
-	page1 := NewRAMArea(1024)
-	page2 := NewRAMArea(1024)
-	page3 := NewRAMArea(1024)
-	page4 := NewRAMArea(1024)
+	page1 := NewRAMArea(0x10000)
+	page2 := NewRAMArea(0x10000)
+	page3 := NewRAMArea(0x10000)
+	page4 := NewRAMArea(0x10000)
 
-	io := NewAddressBusBuilder().AddArea(0, 1024, page1).AddArea(2048, 1024, page2).AddArea(4096, 1024, page3).AddArea(16000, 1024, page4).Build()
+	io := NewAddressBusBuilder().AddArea(0, 0x10000, page1).AddArea(0x10000, 0x10000, page2).AddArea(0x20000, 0x10000, page3).AddArea(0x30000, 0x10000, page4).Build()
 	for i := 1; i < 555; i++ {
 		if i%2 == 0 {
 			io.write(4096, Byte, 0)

@@ -1,0 +1,4 @@
+**/logs
+*.log
+*.prof
+*.test

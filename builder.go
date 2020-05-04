@@ -32,7 +32,7 @@ func (cpu *M68K) SetBus(bus AddressBus) Builder {
 	return cpu
 }
 
-// Go routine starter for M68K
+// Build routine starter for M68K
 func (cpu *M68K) Build() *M68K {
 	if cpu.bus == nil {
 		panic("bus must not be nil")
@@ -43,34 +43,34 @@ func (cpu *M68K) Build() *M68K {
 
 // NewAddressBusBuilder returns a new AddressBusBuilder
 func NewAddressBusBuilder() AddressBusBuilder {
-	return &addressAreaQueue{}
+	return make(addressAreaTable, 0x10000)
 }
 
 // AddArea adds an address area to the address bus
-func (aaq *addressAreaQueue) AddArea(offset, size int32, area *AddressArea) AddressBusBuilder {
+func (aat addressAreaTable) AddArea(address, size int32, area *AddressArea) AddressBusBuilder {
 	if area == nil {
 		panic("AdressArea must not be nil")
 	}
-	if offset < 0 {
-		panic("offset must not be negative")
+	if address < 0 || address&0xffff != 0 {
+		panic("adddress must not be negative and multiple of 0x10000")
 	}
-	if size <= 0 {
-		panic("size must not be less or equal 0")
+	if size <= 0 || size&0xffff != 0 {
+		panic("size must be multiple of 0x1000 and not less or equal 0")
 	}
 
-	for _, handler := range *aaq {
-		start := handler.offset
-		end := start + handler.size
-		if offset >= start && offset < end {
+	handler := &addressAreaHandler{area, address, size}
+	for i := address >> 16; i < (address+size)>>16; i++ {
+		if aat[i] != nil {
 			panic("address area already in use")
 		}
+		aat[i] = handler
 	}
-	*aaq = append(*aaq, &addressAreaHandler{area, offset, size, 0})
-	return aaq
+
+	return aat
 }
 
-func (aaq *addressAreaQueue) Build() AddressBus {
-	return aaq
+func (aat addressAreaTable) Build() AddressBus {
+	return aat
 }
 
 // NewAddressArea creates a new AddressArea with accessors read, write and resetHandler

@@ -1,7 +1,6 @@
 package cpu
 
 import (
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -183,17 +182,18 @@ func TestDbra(t *testing.T) {
 	tcpu.Step()
 	assert.Equal(t, int32(0x4006), tcpu.pc)
 
-	tcpu.write(0x4000, Word, 0x7000+100) // moveq #100, d0
-	tcpu.write(0x4002, Word, 0x7200+100) // moveq #100, d1
-	tcpu.write(0x4004, Word, 0x51c9)     // dbra d1,
-	tcpu.write(0x4006, Word, 0xfffe)     // -2
-	tcpu.write(0x4008, Word, 0x51c8)     // dbra d0,
-	tcpu.write(0x400a, Word, 0xfff8)     // -8
-	tcpu.write(0x400c, Word, 0x4e72)     // stop
-	tcpu.write(0x400e, Word, 0x2700)     // #$27000
+	tcpu.write(0x4000, Word, 0x7000+5) // moveq #5, d0
+	tcpu.write(0x4002, Word, 0x7200+5) // moveq #5, d1
+	tcpu.write(0x4004, Word, 0x51c9)   // dbra d1,
+	tcpu.write(0x4006, Word, 0xfffe)   // -2
+	tcpu.write(0x4008, Word, 0x51c8)   // dbra d0,
+	tcpu.write(0x400a, Word, 0xfff8)   // -8
+	tcpu.write(0x400c, Word, 0x4e72)   // stop
+	tcpu.write(0x400e, Word, 0x2300)   // #$27000
 	tcpu.pc = 0x4000
 	signals := make(chan Signal)
 	tcpu.Run(signals)
+	assert.Equal(t, int32(0x2300), tcpu.sr.bits())
 }
 
 func TestStop(t *testing.T) {
@@ -207,6 +207,7 @@ func TestStop(t *testing.T) {
 }
 
 func BenchmarkDbra(b *testing.B) {
+	b.StopTimer()
 	tcpu.write(0x4000, Word, 0x7000+100) // moveq #100, d0
 	tcpu.write(0x4002, Word, 0x7200+100) // moveq #100, d1
 	tcpu.write(0x4004, Word, 0x51c9)     // dbra d1,
@@ -216,9 +217,9 @@ func BenchmarkDbra(b *testing.B) {
 	tcpu.write(0x400c, Word, 0x4e72)     // stop
 	tcpu.write(0x400e, Word, 0x2700)     // #$27000
 	signals := make(chan Signal)
+	b.StartTimer()
 	for j := 0; j < b.N; j++ {
 		tcpu.pc = 0x4000
 		tcpu.Run(signals)
 	}
-	log.Println(tcpu.icount, b.N)
 }

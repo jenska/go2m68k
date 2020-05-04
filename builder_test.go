@@ -18,11 +18,11 @@ func TestAddArea(t *testing.T) {
 		builder.AddArea(0, 1, nil)
 	})
 
-	builder.AddArea(0, 100, NewRAMArea(100))
+	builder.AddArea(0, 0x10000, NewRAMArea(0x10000))
 	assert.Panics(t, func() {
-		builder.AddArea(10, 100, NewRAMArea(100))
+		builder.AddArea(0, 0x10000, NewRAMArea(0x10000))
 	})
-	builder.AddArea(100, 100, NewRAMArea(100))
+	builder.AddArea(0x10000, 0x10000, NewRAMArea(0x10000))
 }
 
 func TestNewAddressArea(t *testing.T) {

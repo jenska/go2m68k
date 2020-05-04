@@ -1,5 +1,26 @@
 package cpu
 
+/*
+goos: linux
+goarch: amd64
+pkg: github.com/jenska/go2m68k
+BenchmarkDbra-4   	    2056	    526254 ns/op
+PASS
+
+Showing nodes accounting for 1050ms, 90.52% of 1160ms total
+Showing top 10 nodes out of 25
+      flat  flat%   sum%        cum   cum%
+     180ms 15.52% 15.52%      710ms 61.21%  github.com/jenska/go2m68k.(*M68K).SetISA68000.func1
+     150ms 12.93% 28.45%      530ms 45.69%  github.com/jenska/go2m68k.(*addressAreaQueue).read
+     140ms 12.07% 40.52%      280ms 24.14%  github.com/jenska/go2m68k.NewBaseArea.func1
+     110ms  9.48% 50.00%      960ms 82.76%  github.com/jenska/go2m68k.(*M68K).step
+     100ms  8.62% 58.62%      100ms  8.62%  github.com/jenska/go2m68k.(*addressAreaQueue).findArea
+      90ms  7.76% 66.38%      800ms 68.97%  github.com/jenska/go2m68k.(*M68K).popPC (inline)
+      90ms  7.76% 74.14%      140ms 12.07%  github.com/jenska/go2m68k.glob..func4
+      90ms  7.76% 81.90%       90ms  7.76%  runtime.chanrecv
+      50ms  4.31% 86.21%       50ms  4.31%  encoding/binary.bigEndian.Uint16
+      50ms  4.31% 90.52%      340ms 29.31%  github.com/jenska/go2m68k.dbra
+*/
 import (
 	"fmt"
 	"log"
