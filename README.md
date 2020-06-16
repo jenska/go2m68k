@@ -1,4 +1,4 @@
-# M68000 emulator
+# M68K emulator
 
 g02m68k will become an 680xx CPU emulator in Go language. 
 

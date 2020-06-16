@@ -41,6 +41,7 @@ type (
 	}
 
 	opcode struct {
+		name                string
 		instruction         instruction
 		match, mask, eaMask uint16
 		cycles              map[rune]*int
@@ -126,10 +127,11 @@ func buildInstructionTable(c *M68K, r rune) {
 				index := match | value
 
 				if validEA(index, opcode.eaMask) {
-					// if c.instructions[index] != nil {
-					// 	fmt.Printf("instruction 0x%04x already set\n", index)
-					// }
-					counter++
+					if c.instructions[index] != nil {
+						log.Printf("instruction 0x%04x (%s) already set\n", index, opcode.name)
+					} else {
+						counter++
+					}
 					c.instructions[index] = opcode.instruction
 					c.cycles[index] = *opcode.cycles[r]
 				}
@@ -141,7 +143,7 @@ func buildInstructionTable(c *M68K, r rune) {
 			}
 		}
 	}
-	log.Printf("added %d cpu instructions", counter)
+	log.Printf("%d cpu instructions available", counter)
 
 	for i := range c.instructions {
 		if c.instructions[i] == nil {
@@ -152,7 +154,8 @@ func buildInstructionTable(c *M68K, r rune) {
 
 }
 
-func addOpcode(ins instruction, match, mask uint16, eaMask uint16, cycles ...string) {
+func addOpcode(name string, ins instruction, match, mask uint16, eaMask uint16, cycles ...string) {
+	log.Printf("add opcode %s\n", name)
 	cycleMap := map[rune]*int{}
 	for _, entry := range cycles {
 		parts := strings.Split(entry, ":")
@@ -162,7 +165,7 @@ func addOpcode(ins instruction, match, mask uint16, eaMask uint16, cycles ...str
 			cycleMap[r] = &cnt
 		}
 	}
-	opcodeTable = append(opcodeTable, &opcode{ins, match, mask, eaMask, cycleMap})
+	opcodeTable = append(opcodeTable, &opcode{name, ins, match, mask, eaMask, cycleMap})
 }
 
 func toInt(s string, base int) int {

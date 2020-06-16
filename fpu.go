@@ -1,10 +1,10 @@
 package cpu
 
 func init() {
-	addOpcode(a000, 0xa000, 0xf000, 0x0000, "071234fc:4")
-	addOpcode(f000, 0xf000, 0xf000, 0x0000, "071234fc:4")
-	addOpcode(fpu0, 0xf200, 0xff00, 0x0000, "234f:0")
-	addOpcode(fpu1, 0xf300, 0xff00, 0x0000, "234f:0")
+	addOpcode("0xa000", a000, 0xa000, 0xf000, 0x0000, "071234fc:4")
+	addOpcode("0xf000", f000, 0xf000, 0xf000, 0x0000, "071234fc:4")
+	addOpcode("fpu0", fpu0, 0xf200, 0xff00, 0x0000, "234f:0")
+	addOpcode("fpu1", fpu1, 0xf300, 0xff00, 0x0000, "234f:0")
 }
 
 func a000(c *M68K) {
@@ -17,7 +17,7 @@ func f000(c *M68K) {
 
 func fpu0(c *M68K) {
 	if c.hasFPU {
-		//	c.m68040_fpu_op0()
+		panic("not implemented")
 	} else {
 		c.raiseException1111()
 	}
@@ -25,7 +25,7 @@ func fpu0(c *M68K) {
 
 func fpu1(c *M68K) {
 	if c.hasFPU {
-		//	c.m68040_fpu_op1()
+		panic("not implemented")
 	} else {
 		c.raiseException1111()
 	}
