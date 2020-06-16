@@ -22,7 +22,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	mem, err := ioutil.ReadFile("test/etos192us.img")
+	mem, err := ioutil.ReadFile("testdata/etos192us.img")
 	if err != nil {
 		panic(err)
 	}

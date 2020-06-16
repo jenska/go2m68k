@@ -2,67 +2,138 @@ package cpu
 
 type (
 	ea interface {
-		compute() modifier
-		timing() int
+		init(cpu *M68K, o *Size) modifier
+		computedAddress() int32
+		// cycles() int
 	}
 
 	modifier interface {
-		read() int
-		write(value int)
+		read() int32
+		write(int32)
 	}
 
-	// 0 Dx
-	eaDataRegister struct {
-		o   *Size
-		reg *int32
-	}
-	// 1 Ax
-	eaAddressRegister struct {
-		o   *Size
-		reg *uint32
+	eaRegister struct {
+		reg  func(cpu *M68K) *int32
+		cpu  *M68K
+		size *Size
 	}
 
-	// 2 (Ax)
-	eaAddressRegisterIndirect struct {
-		addressModifier
-		reg *uint32
+	eaRegisterIndirect struct {
+		eaRegister
+		address int32
 	}
-	// 3 (Ax)+
-	eaAddressRegisterPostInc eaAddressRegisterIndirect
-	// 4 -(Ax)
-	eaAddressRegisterPreDec eaAddressRegisterIndirect
-	// 5 xxxx(Ax)
-	eaAddressRegisterWithDisplacement eaAddressRegisterIndirect
-	// 5 xxxx(PC)
-	eaPCWithDisplacement struct {
-		addressModifier
+
+	eaPostIncrement eaRegisterIndirect
+
+	eaPreDecrement eaRegisterIndirect
+
+	eaDisplacement eaRegisterIndirect
+
+	eaIndirectIndex struct {
+		eaRegisterIndirect
+		index func(cpu *M68K, a int32) int32
 	}
-	// 6 xx(Ax, Rx.w/.l)
-	eaAddressRegisterWithIndex eaAddressRegisterIndirect
-	// 6 xx(PC, Rx.w/.l)
-	eaPCWithIndex eaPCWithDisplacement
-	// 7. xxxx.w
-	eaAbsoluteWord struct {
-		addressModifier
+
+	eaAbsolute struct {
+		cpu     *M68K
+		size    *Size
+		address int32
 	}
-	// 8. xxxx.l
-	eaAbsoluteLong eaAbsoluteWord
-	// 9. #value
+
+	eaPCDisplacement eaDisplacement
+
+	eaPCIndirectIndex eaIndirectIndex
+
 	eaImmediate struct {
-		addressModifier
+		value int32
 	}
 
-	// Helper for read and write of precomputed addresses
-	addressModifier struct {
-		cpu    *M68K
-		o      *Size
-		addr   uint32
-		cycles int
+	eaStatusRegister struct {
+		size *Size
+		sr   *ssr
 	}
 )
 
-func (cpu *M68K) readAddress(a int32) int32 {
-	return cpu.read(a, Long)
+var (
+	eaSrc68000 = []ea{
+		&eaRegister{reg: dx},
+		&eaRegister{reg: ax},
+		&eaRegisterIndirect{eaRegister{reg: ax}, 0},
+		&eaPostIncrement{eaRegister{reg: ax}, 0},
+		&eaPreDecrement{eaRegister{reg: ax}, 0},
+		&eaDisplacement{eaRegister{reg: ax}, 0},
+		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ax}, 0}, ix68000},
+		&eaAbsolute{size: Word},
+		&eaAbsolute{size: Long},
+		&eaPCDisplacement{eaRegister{reg: nil}, 0},
+		&eaPCIndirectIndex{eaRegisterIndirect{eaRegister{reg: nil}, 0}, ix68000},
+		&eaImmediate{},
+	}
+
+	eaDst68000 = []ea{
+		&eaRegister{reg: dy},
+		&eaRegister{reg: ay},
+		&eaRegisterIndirect{eaRegister{reg: ay}, 0},
+		&eaPostIncrement{eaRegister{reg: ay}, 0},
+		&eaPreDecrement{eaRegister{reg: ay}, 0},
+		&eaPreDecrement{eaRegister{reg: ay}, 0},
+		&eaDisplacement{eaRegister{reg: ay}, 0},
+		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ay}, 0}, ix68000},
+		&eaAbsolute{size: Word},
+		&eaAbsolute{size: Long},
+		&eaPCDisplacement{eaRegister{reg: nil}, 0},
+		&eaPCIndirectIndex{eaRegisterIndirect{eaRegister{reg: nil}, 0}, ix68000},
+		&eaStatusRegister{},
+	}
+
+	eaSrc68020 = []ea{
+		&eaRegister{reg: dx},
+		&eaRegister{reg: ax},
+		&eaRegisterIndirect{eaRegister{reg: ax}, 0},
+		&eaPostIncrement{eaRegister{reg: ax}, 0},
+		&eaPreDecrement{eaRegister{reg: ax}, 0},
+		&eaDisplacement{eaRegister{reg: ax}, 0},
+		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ax}, 0}, ix68020},
+		&eaAbsolute{size: Word},
+		&eaAbsolute{size: Long},
+		&eaPCDisplacement{eaRegister{reg: nil}, 0},
+		&eaPCIndirectIndex{eaRegisterIndirect{eaRegister{reg: nil}, 0}, ix68020},
+		&eaImmediate{},
+	}
+
+	eaDst68020 = []ea{
+		&eaRegister{reg: dy},
+		&eaRegister{reg: ay},
+		&eaRegisterIndirect{eaRegister{reg: ay}, 0},
+		&eaPostIncrement{eaRegister{reg: ay}, 0},
+		&eaPreDecrement{eaRegister{reg: ay}, 0},
+		&eaPreDecrement{eaRegister{reg: ay}, 0},
+		&eaDisplacement{eaRegister{reg: ay}, 0},
+		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ay}, 0}, ix68020},
+		&eaAbsolute{size: Word},
+		&eaAbsolute{size: Long},
+		&eaPCDisplacement{eaRegister{reg: nil}, 0},
+		&eaPCIndirectIndex{eaRegisterIndirect{eaRegister{reg: nil}, 0}, ix68020},
+		&eaStatusRegister{},
+	}
+)
+
+// TODO add cycles
+func (cpu *M68K) resolveSrcEA(o *Size) modifier {
+	mode := (cpu.ir >> 6) & 0x07
+	if mode < 7 {
+		return cpu.eaSrc[mode].init(cpu, o)
+	}
+	return cpu.eaSrc[mode+x(cpu.ir)].init(cpu, o)
+}
+
+// TODO add cycles
+func (cpu *M68K) resolveDstEA(o *Size) modifier {
+	mode := (cpu.ir >> 3) & 0x07
+	if mode < 7 {
+		return cpu.eaDst[mode].init(cpu, o)
+	}
+	return cpu.eaDst[mode+y(cpu.ir)].init(cpu, o)
 }
 
 func (cpu *M68K) push(s *Size, value int32) {
@@ -71,157 +142,283 @@ func (cpu *M68K) push(s *Size, value int32) {
 }
 
 func (cpu *M68K) pop(s *Size) int32 {
-	result := cpu.read(cpu.a[7], s)
-	cpu.a[7] += s.size
-	return result
+	res := cpu.read(cpu.a[7], s)
+	cpu.pc += s.size // sometimes odd
+	return res
 }
 
-func (c *M68K) popPC(o *Size) int32 {
-	result := c.read(c.pc, o)
-	c.pc += o.align
-	return result
+func (cpu *M68K) popPc(s *Size) int32 {
+	res := cpu.read(cpu.pc, s)
+	cpu.pc += s.align // never odd
+	return res
 }
 
-func (c *M68K) operandY() *Size {
-	return operands[(c.ir>>6)&0x3]
+func x(ir uint16) uint16 { return (ir >> 9) & 0x7 }
+func y(ir uint16) uint16 { return ir & 0x7 }
+
+func dx(cpu *M68K) *int32 { return &cpu.d[x(cpu.ir)] }
+func dy(cpu *M68K) *int32 { return &cpu.d[y(cpu.ir)] }
+
+func ax(cpu *M68K) *int32 { return &cpu.a[x(cpu.ir)] }
+func ay(cpu *M68K) *int32 { return &cpu.a[y(cpu.ir)] }
+
+// -------------------------------------------------------------------
+// Data register
+
+func (ea *eaRegister) init(cpu *M68K, o *Size) modifier {
+	ea.cpu, ea.size = cpu, o
+	return ea
 }
 
-/*
-func (c *M68K) eaY(o *Size) ea {
-	switch (c.IR >> 3) & 0x7 {
-	case 0:
-		return eaDataRegister{o, c.dy()}
-	case 1:
-		return &eaAddressRegister{o, c.ay()}
-	case 2:
-		return &eaAddressRegisterIndirect{addressModifier{c, o, 0}, c.ay()}
-	case 3:
-		return &eaAddressRegisterPostInc{addressModifier{c, o, 0}, c.ay()}
-	case 4:
-		return &eaAddressRegisterPreDec{addressModifier{c, o, 0}, c.ay()}
-	case 5:
-		return &eaAddressRegisterWithDisplacement{addressModifier{c, o, 0}, c.ay()}
-	case 6:
-		return &eaAddressRegisterWithIndex{addressModifier{c, o, 0}, c.ay()}
-	case 7:
-		switch c.IR & 0x7 {
-		case 0:
-			return &eaAbsoluteWord{addressModifier{c, o, 0}}
-		case 1:
-			return &eaAbsoluteLong{addressModifier{c, o, 0}}
-		case 2:
-			return &eaPCWithDisplacement{addressModifier{c, o, 0}}
-		case 3:
-			return &eaPCWithIndex{addressModifier{c, o, 0}}
-		case 4:
-			return &eaImmediate{addressModifier{c, o, 0}}
+func (ea *eaRegister) read() int32 {
+	return *ea.reg(ea.cpu) & int32(ea.size.mask)
+}
+
+func (ea *eaRegister) write(v int32) {
+	ea.size.set(v, ea.reg(ea.cpu))
+}
+
+func (ea *eaRegister) computedAddress() int32 {
+	panic("no address in register addressing mode")
+}
+
+// -------------------------------------------------------------------
+// Address register indirect
+
+func (ea *eaRegisterIndirect) init(cpu *M68K, o *Size) modifier {
+	ea.cpu, ea.size, ea.address = cpu, o, *ea.reg(cpu)
+	return ea
+}
+
+func (ea *eaRegisterIndirect) read() int32 {
+	return ea.cpu.read(ea.address, ea.size)
+}
+
+func (ea *eaRegisterIndirect) write(v int32) {
+	ea.cpu.write(ea.address, ea.size, v)
+}
+
+func (ea *eaRegisterIndirect) computedAddress() int32 {
+	return ea.address
+}
+
+// -------------------------------------------------------------------
+// Post increment
+
+func (ea *eaPostIncrement) init(cpu *M68K, o *Size) modifier {
+	ea.cpu, ea.size, ea.address = cpu, o, *ea.reg(cpu)
+	*ea.reg(cpu) += ea.size.size
+	return ea
+}
+
+// -------------------------------------------------------------------
+// Pre decrement
+
+func (ea *eaPreDecrement) init(cpu *M68K, o *Size) modifier {
+	*ea.reg(cpu) -= o.size
+	ea.cpu, ea.size, ea.address = cpu, o, *ea.reg(cpu)
+	return ea
+}
+
+// -------------------------------------------------------------------
+// Displacement
+
+func (ea *eaDisplacement) init(cpu *M68K, o *Size) modifier {
+	ea.cpu, ea.size = cpu, o
+	ea.address = *ea.reg(cpu) + cpu.popPc(Word)
+	return ea
+}
+
+func (ea *eaPCDisplacement) init(cpu *M68K, o *Size) modifier {
+	ea.cpu, ea.size = cpu, o
+	ea.address = cpu.pc + cpu.popPc(Word)
+	return ea
+}
+
+// -------------------------------------------------------------------
+// Indirect + index
+
+func (ea *eaIndirectIndex) init(cpu *M68K, o *Size) modifier {
+	ea.cpu, ea.size = cpu, o
+	ea.address = ea.index(cpu, *ea.reg(cpu))
+	return ea
+}
+
+func (ea *eaPCIndirectIndex) init(cpu *M68K, o *Size) modifier {
+	ea.cpu, ea.size = cpu, o
+	ea.address = ea.index(cpu, cpu.pc)
+	return ea
+}
+
+// -------------------------------------------------------------------
+// absolute word and long
+
+func (ea *eaAbsolute) init(cpu *M68K, o *Size) modifier {
+	ea.cpu, ea.size = cpu, o
+	ea.address = cpu.popPc(o)
+	return ea
+}
+
+func (ea *eaAbsolute) read() int32 {
+	return ea.cpu.read(ea.address, ea.size)
+}
+
+func (ea *eaAbsolute) write(v int32) {
+	ea.cpu.write(ea.address, ea.size, v)
+}
+
+func (ea *eaAbsolute) computedAddress() int32 {
+	return ea.address
+}
+
+// -------------------------------------------------------------------
+// immediate
+
+func (ea *eaImmediate) init(cpu *M68K, o *Size) modifier {
+	ea.value = cpu.popPc(o)
+	return ea
+}
+
+func (ea *eaImmediate) read() int32 {
+	return ea.value
+}
+
+func (ea *eaImmediate) write(v int32) {
+	panic("write on immediate addressing mode")
+}
+
+func (ea *eaImmediate) computedAddress() int32 {
+	panic("no adress in immediate addressing mode")
+}
+
+// -------------------------------------------------------------------
+// immediate
+
+func (ea *eaStatusRegister) init(cpu *M68K, o *Size) modifier {
+	ea.sr = &cpu.sr
+	return ea
+}
+
+func (ea *eaStatusRegister) read() int32 {
+	if ea.size == Byte {
+		return ea.sr.ccr()
+	}
+	return ea.sr.bits()
+}
+
+func (ea *eaStatusRegister) write(v int32) {
+	if ea.size == Byte {
+		ea.sr.setccr(v)
+	} else {
+		ea.sr.setbits(v)
+	}
+}
+
+func (ea *eaStatusRegister) computedAddress() int32 {
+	panic("no adress in status register addressing mode")
+}
+
+// -------------------------------------------------------------------
+// Indexed addressing modes are encoded as follows:
+//
+// Base instruction format:
+// F E D C B A 9 8 7 6 | 5 4 3 | 2 1 0
+// x x x x x x x x x x | 1 1 0 | BASE REGISTER      (An)
+//
+// Base instruction format for destination EA in move instructions:
+// F E D C | B A 9    | 8 7 6 | 5 4 3 2 1 0
+// x x x x | BASE REG | 1 1 0 | X X X X X X       (An)
+//
+// Brief extension format:
+//  F  |  E D C   |  B  |  A 9  | 8 | 7 6 5 4 3 2 1 0
+// D/A | REGISTER | W/L | SCALE | 0 |  DISPLACEMENT
+//
+// Full extension format:
+//  F     E D C      B     A 9    8   7    6    5 4       3   2 1 0
+// D/A | REGISTER | W/L | SCALE | 1 | BS | IS | BD SIZE | 0 | I/IS
+// BASE DISPLACEMENT (0, 16, 32 bit)                (bd)
+// OUTER DISPLACEMENT (0, 16, 32 bit)               (od)
+//
+// D/A:     0 = Dn, 1 = An                          (Xn)
+// W/L:     0 = W (sign extend), 1 = L              (.SIZE)
+// SCALE:   00=1, 01=2, 10=4, 11=8                  (*SCALE)
+// BS:      0=add base reg, 1=suppress base reg     (An suppressed)
+// IS:      0=add index, 1=suppress index           (Xn suppressed)
+// BD SIZE: 00=reserved, 01=NULL, 10=Word, 11=Long  (size of bd)
+//
+// IS I/IS Operation
+// 0  000  No Memory Indirect
+// 0  001  indir prex with null outer
+// 0  010  indir prex with word outer
+// 0  011  indir prex with long outer
+// 0  100  reserved
+// 0  101  indir postx with null outer
+// 0  110  indir postx with word outer
+// 0  111  indir postx with long outer
+// 1  000  no memory indirect
+// 1  001  mem indir with null outer
+// 1  010  mem indir with word outer
+// 1  011  mem indir with long outer
+// 1  100-111  reserved
+//
+func ix68000(c *M68K, a int32) int32 {
+	ext := c.popPc(Word)
+
+	xn := c.da[ext>>12]
+	if (ext & 0x800) == 0 {
+		xn = int32(int16(ext))
+	}
+	return a + xn + int32(int8(ext))
+}
+
+func ix68020(c *M68K, a int32) int32 {
+	ext := c.popPc(Word)
+	var xn int32
+
+	// brief extension format
+	if (ext & 0x80) == 0 {
+
+		xn = c.da[ext>>12]
+		if (ext & 0x800) == 0 {
+			xn = int32(int16(ext))
+		}
+		// Add scale
+		xn <<= (ext >> 9) & 3
+		return a + xn + int32(int8(ext))
+	}
+
+	// full extension format
+	c.iclocks -= c.eaIdxCycles[ext&0x3f]
+	if (ext & 0x40) != 0 { //BS
+		a = 0
+	}
+	if (ext & 0x20) == 0 { // IS
+		xn = c.da[ext>>12]
+		if (ext & 0x800) == 0 {
+			xn <<= (ext >> 9) & 3
 		}
 	}
-	panic(fmt.Sprintf("illegal adressing mode %d", c.IR&0xf))
-}
-func (c *M68K) modOp() (modifier, *Size) {
-	o := c.operandY()
-	return c.eaY(o).compute(), o
-}
-
-func (c *M68K) immOp() (int, *Size) {
-	o := c.operandY()
-	return c.readImm(o), o
-}
-
-func (c *M68K) dx() int32 { return c.D[(c.IR>>9)&0x7] }
-func (c *M68K) dy() int32 { return c.D[c.IR&0x7] }
-
-func (c *M68K) ax() int32 { return c.D[(c.IR>>9)&0x7] }
-func (c *M68K) ay() int32 { return c.D[c.IR&0x7] }
-
-func (a *addressModifier) read() int       { return a.cpu.read(a.address, a.o) }
-func (a *addressModifier) write(value int) { a.cpu.write(a.address, a.o, value) }
-func (a *addressModifier) timing() int     { return a.cycles }
-
-func (ea *eaDataRegister) compute() modifier { return ea }
-func (ea *eaDataRegister) timing() int       { return 0 }
-func (ea *eaDataRegister) read() int         { return ea.o.get(*ea.register) }
-func (ea *eaDataRegister) write(value int)   { ea.o.set(value, ea.register) }
-
-func (ea *eaAddressRegister) compute() modifier { return ea }
-func (ea *eaAddressRegister) timing() int       { return 0 }
-func (ea *eaAddressRegister) read() int         { return ea.o.get(*ea.register) }
-func (ea *eaAddressRegister) write(value int)   { ea.o.set(value, ea.register) }
-
-func (ea *eaAddressRegisterIndirect) compute() modifier {
-	ea.address = *ea.register
-	return ea
-}
-
-func (ea *eaAddressRegisterPostInc) compute() modifier {
-	ea.address = *ea.register
-	*ea.register += ea.o.size
-	return ea
-}
-
-func (ea *eaAddressRegisterPreDec) compute() modifier {
-	*ea.register -= ea.o.size
-	ea.address = *ea.register
-	return ea
-}
-
-func (ea *eaAddressRegisterWithDisplacement) compute() modifier {
-	ea.address = *ea.register + ea.cpu.readImm(Word)
-	return ea
-}
-
-func (ea *eaPCWithDisplacement) compute() modifier {
-	ea.address = ea.cpu.pc + ea.cpu.readImm(Word)
-	return ea
-}
-
-func (ea *eaAddressRegisterWithIndex) compute() modifier {
-	ext := ea.cpu.readImm(Word)
-	displacement := int(int8(ext))
-	idxRegNumber := (ext >> 12) & 0x07
-	idxValue := 0
-	if (ext & 0x8000) == 0x8000 { // address register
-		idxValue = ea.cpu.a[idxRegNumber]
-	} else { // data register
-		idxValue = ea.cpu.d[idxRegNumber]
+	var bd int32
+	if (ext & 0x10) != 0 {
+		if (ext & 0x80) != 0 {
+			bd = c.popPc(Long)
+		} else {
+			bd = c.popPc(Word)
+		}
 	}
-	ea.address = *ea.register + idxValue + displacement
-	return ea
-}
-
-func (ea *eaPCWithIndex) compute() modifier {
-	ext := ea.cpu.readImm(Word)
-	displacement := int(int8(ext))
-	idxRegNumber := (ext >> 12) & 0x07
-	idxValue := 0
-	if (ext & 0x8000) == 0x8000 { // address register
-		idxValue = int(ea.cpu.a[idxRegNumber])
-	} else { // data register
-		idxValue = int(ea.cpu.d[idxRegNumber])
+	if (ext & 7) == 0 {
+		return a + bd + xn
 	}
-	if (ext & 0x0800) == 0 {
-		idxValue = int(int16(idxValue))
+	var od int32
+	if (ext & 0x02) != 0 {
+		if (ext & 0x01) != 0 {
+			od = c.popPc(Long)
+		} else {
+			od = c.popPc(Word)
+		}
 	}
-	ea.address = ea.cpu.pc + idxValue + displacement
-	return ea
+	if (ext & 0x04) != 0 {
+		return c.read(a+bd, Long) + xn + od
+	}
+	return c.read(a+bd+xn, Long) + od
 }
-
-func (ea *eaAbsoluteWord) compute() modifier {
-	ea.address = ea.cpu.readImm(Word)
-	return ea
-}
-
-func (ea *eaAbsoluteLong) compute() modifier {
-	ea.address = ea.cpu.readImm(Long)
-	return ea
-}
-
-func (ea *eaImmediate) compute() modifier {
-	ea.address = ea.cpu.readImm(ea.o)
-	return ea
-}
-
-func (ea *eaImmediate) read() int       { return ea.address }
-func (ea *eaImmediate) write(value int) {}
-*/

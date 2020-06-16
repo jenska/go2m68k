@@ -36,22 +36,30 @@ type (
 	// M68K CPU core
 	M68K struct {
 		instructions [0x10000]instruction
-		icount       int // overall instructions performend
+		icount       int // overall instructions performed
+
+		cycles      [0x10000]int
+		eaIdxCycles [64]int
+		iclocks     int // number of clocks remaining
 
 		bus   AddressBus
 		read  Reader
 		write Writer
+		eaSrc []ea
+		eaDst []ea
 
-		d [8]int32 // Data register
-		a [8]int32 // Address register (A[7] == USP)
-
-		pc int32  // Program counter
-		ir uint16 // Instruction Register
+		da  [16]int32 // data and address registers
+		d   []int32   // slice of data registers
+		a   []int32   // slice of address registers
+		pc  int32     // Program counter
+		ppc int32     // previous program counter
+		ir  uint16    // Instruction Register
 
 		ssp, usp int32 // Supervisoro Stackpointer#
 		sr       ssr   // Supervisor Status Register (+ CCR)
 
 		stopped bool // stopped state
+		hasFPU  bool
 	}
 )
 
@@ -72,19 +80,25 @@ func (cpu *M68K) String() string {
 func (cpu *M68K) catchError() {
 	if r := recover(); r != nil {
 		if err, ok := r.(Error); ok {
-			cpu.raiseException(err)
-		} else {
-			log.Print(err)
-			cpu.stopped = true
+			oldSR := cpu.sr
+			if !cpu.sr.S {
+				cpu.sr.S = true
+				cpu.usp = cpu.a[7]
+			}
+			cpu.a[7] = cpu.ssp
+			cpu.push(Long, cpu.pc)
+			cpu.push(Word, int32(oldSR.bits()))
+
+			xaddr := cpu.read(int32(err)<<2, Long)
+			if xaddr == 0 {
+				if xaddr = cpu.read(int32(UnintializedInterrupt)<<2, Long); xaddr == 0 {
+					log.Print("Interrupt vector not set for uninitialised interrupt vector")
+					cpu.stopped = true
+				}
+			}
+			cpu.pc = xaddr
 		}
 	}
-}
-
-func (cpu *M68K) step() *M68K {
-	cpu.ir = uint16(cpu.popPC(Word))
-	cpu.instructions[cpu.ir](cpu)
-	cpu.icount++
-	return cpu
 }
 
 // Run until halted
@@ -101,7 +115,7 @@ func (cpu *M68K) Run(signals <-chan Signal) {
 				break
 			}
 		default:
-			cpu.step()
+			cpu.Step()
 		}
 	}
 }
@@ -109,34 +123,18 @@ func (cpu *M68K) Run(signals <-chan Signal) {
 // Step through a single instruction
 func (cpu *M68K) Step() *M68K {
 	defer cpu.catchError()
-	return cpu.step()
+	cpu.ir = uint16(cpu.popPc(Word))
+	cpu.instructions[cpu.ir](cpu)
+	cpu.icount++
+	return cpu
 }
 
 // Reset sets the cpu back to initial state
 func (cpu *M68K) Reset() {
 	cpu.bus.reset()
 	cpu.sr.setbits(0x2700)
-	cpu.ssp, cpu.pc = cpu.readAddress(0), cpu.readAddress(4)
+	cpu.ssp, cpu.pc = cpu.read(0, Long), cpu.read(4, Long)
 	cpu.a[7] = cpu.ssp
 	cpu.stopped = false
 	cpu.icount = 0
-}
-
-func (cpu *M68K) raiseException(err Error) {
-	oldSR := cpu.sr
-	if !cpu.sr.S {
-		cpu.sr.S = true
-		cpu.usp = cpu.a[7]
-	}
-	cpu.a[7] = cpu.ssp
-	cpu.push(Long, cpu.pc)
-	cpu.push(Word, int32(oldSR.bits()))
-
-	xaddr := cpu.readAddress(int32(err) << 2)
-	if xaddr == 0 {
-		if xaddr = cpu.readAddress(int32(UnintializedInterrupt) << 2); xaddr == 0 {
-			panic("Interrupt vector not set for uninitialised interrupt vector")
-		}
-	}
-	cpu.pc = xaddr
 }

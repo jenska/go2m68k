@@ -148,3 +148,33 @@ func NewBaseArea(ssp, pc int32, size uint32) *AddressArea {
 		},
 	)
 }
+
+// SetISA68000 Instruction Set Architecture for M68000
+func (cpu *M68K) SetISA68000() Builder {
+	cpu.eaDst = eaDst68000
+	cpu.eaSrc = eaSrc68000
+
+	cpu.d = cpu.da[:8]
+	cpu.a = cpu.da[8:]
+
+	c := cpu
+	cpu.read = func(a int32, s *Size) int32 {
+		if a&1 == 1 && s != Byte {
+			panic(AdressError)
+		}
+		return c.bus.read(a&0x00ffffff, s)
+	}
+
+	cpu.write = func(a int32, s *Size, value int32) {
+		if a&1 == 1 && s != Byte {
+			panic(AdressError)
+		}
+		if !c.sr.S && a < 0x800 {
+			panic(PrivilegeViolationError)
+		}
+		c.bus.write(a&0x00ffffff, s, value)
+	}
+
+	buildInstructionTable(c, '0')
+	return cpu
+}

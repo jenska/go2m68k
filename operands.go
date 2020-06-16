@@ -51,7 +51,7 @@ var (
 			binary.BigEndian.PutUint16(slice, uint16(value))
 		},
 		read: func(slice []byte) int32 {
-			return int32(int16(binary.BigEndian.Uint16(slice)))
+			return int32(binary.BigEndian.Uint16(slice))
 		},
 	}
 
@@ -74,10 +74,12 @@ var (
 	}
 )
 
+// IsNegative tests an operand of a specifc size if it is negative
 func (s *Size) IsNegative(value int32) bool {
 	return s.msb&uint32(value) != 0
 }
 
+// HexString returns an unsingned hex string with leading zeroes
 func (s *Size) HexString(value int32) string {
 	v := uint32(value) & s.mask
 	return fmt.Sprintf(s.fmt, v)

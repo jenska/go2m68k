@@ -100,15 +100,37 @@ func (sr *ssr) setccr(value int32) {
 	sr.X = (value & 16) != 0
 }
 
-func (sr *ssr) setLogicalFlags(data int32) {
-	sr.N = data < 0
-	sr.Z = data == 0
+func (sr *ssr) x1() int32 {
+	if sr.X {
+		return 1
+	}
+	return 0
+}
+
+func (sr *ssr) setLogicalFlags(o *Size, data int32) {
+	sr.N = o.IsNegative(data)
+	sr.Z = o.mask&uint32(data) == 0
 	sr.V = false
 	sr.C = false
 }
 
+func (sr *ssr) setAddSubFlags(o *Size, src, dest, result int32) {
+	sr.Z = (o.mask & uint32(result)) == 0
+	sr.N = o.IsNegative(result)
+	sr.setAddSubXFlags(o, src, dest, result)
+}
+
+func (sr *ssr) setAddSubXFlags(o *Size, src, dest, result int32) {
+	sr.C = ((uint32(result) >> o.bits) & 1) != 0
+	sr.X = sr.C
+	srcN := o.IsNegative(src)
+	destN := o.IsNegative(dest)
+	sr.V = (srcN != destN) && (sr.N != destN)
+}
+
 // TODO: return func(result, src, dest int)
 /*
+
 func (sr *ssr) setFlags(opcode int, s *Size, result, src, dest int) {
 	resN := s.IsNegative(result)
 	destN := s.IsNegative(dest)
@@ -139,8 +161,8 @@ func (sr *ssr) setFlags(opcode int, s *Size, result, src, dest int) {
 	}
 }
 */
-/*
-func (sr *ssr) conditionalTest(code uint32) func() bool {
+
+func (sr *ssr) testCC(code uint16) bool {
 	var condition = []func() bool{
 		func() bool { return true },
 		func() bool { return false },
@@ -159,6 +181,5 @@ func (sr *ssr) conditionalTest(code uint32) func() bool {
 		func() bool { return (sr.N && sr.V && !sr.Z) || (!sr.N && !sr.V && !sr.Z) },
 		func() bool { return sr.Z || (sr.N && !sr.V) || (!sr.N && sr.V) },
 	}
-	return condition[code&0x0f]
+	return condition[code&0x0f]()
 }
-*/
