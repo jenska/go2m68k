@@ -1,8 +1,8 @@
 package cpu
 
 func init() {
-	addOpcode("abcdRR", abcdRR, 0xc100, 0xf1f8, 0x0000, "01:6", "7:10", "234fc:4")
-	addOpcode("abcdMM", abcdMM, 0xc108, 0xf1f8, 0x0000, "01:18", "7:31", "234fc:16")
+	addOpcode("abcd dx, dy", abcdRR, 0xc100, 0xf1f8, 0x0000, "01:6", "7:10", "234fc:4")
+	addOpcode("abcd -(ax), -(ay)", abcdMM, 0xc108, 0xf1f8, 0x0000, "01:18", "7:31", "234fc:16")
 	addOpcode("nbcd", nbcd, 0x4800, 0xffc0, 0x0, "01:8", "7:14", "234fc:6")
 }
 

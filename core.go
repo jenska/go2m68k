@@ -120,7 +120,7 @@ func illegal(c *M68K) {
 func buildInstructionTable(c *M68K, r rune) {
 	var counter int
 	for _, opcode := range opcodeTable {
-		match := opcode.mask
+		match := opcode.match
 		if opcode.cycles[r] != nil {
 			mask := opcode.mask
 			for value := uint16(0); ; {
@@ -128,7 +128,7 @@ func buildInstructionTable(c *M68K, r rune) {
 
 				if validEA(index, opcode.eaMask) {
 					if c.instructions[index] != nil {
-						log.Printf("instruction 0x%04x (%s) already set\n", index, opcode.name)
+						//	log.Printf("instruction 0x%04x (%s) already set\n", index, opcode.name)
 					} else {
 						counter++
 					}
@@ -137,6 +137,7 @@ func buildInstructionTable(c *M68K, r rune) {
 				}
 
 				value = ((value | mask) + 1) & ^mask
+
 				if value == 0 {
 					break
 				}
@@ -155,7 +156,7 @@ func buildInstructionTable(c *M68K, r rune) {
 }
 
 func addOpcode(name string, ins instruction, match, mask uint16, eaMask uint16, cycles ...string) {
-	log.Printf("add opcode %s\n", name)
+	// log.Printf("add opcode %s\n", name)
 	cycleMap := map[rune]*int{}
 	for _, entry := range cycles {
 		parts := strings.Split(entry, ":")

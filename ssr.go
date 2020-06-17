@@ -163,6 +163,7 @@ func (sr *ssr) setFlags(opcode int, s *Size, result, src, dest int) {
 */
 
 func (sr *ssr) testCC(code uint16) bool {
+	// TODO: performance?
 	var condition = []func() bool{
 		func() bool { return true },
 		func() bool { return false },
