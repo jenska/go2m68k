@@ -29,8 +29,62 @@ import (
 // TODO:
 //  add cpu cycles
 //  add tracing (t0,t1)
+// Exceptions handled by emulation
+const (
+	MMUAtcEntries = 22  // 68851 has 64, 030 has 22
+	M68KICSize    = 128 // instruction cache size
+
+	BusError                Error = 2
+	AdressError             Error = 3
+	IllegalInstruction      Error = 4
+	ZeroDivideError         Error = 5
+	PrivilegeViolationError Error = 8
+	UnintializedInterrupt   Error = 15
+
+	HaltSignal Signal = iota
+	ResetSignal
+	Int1Signal
+	Int2Signal
+	Int3Signal
+	Int4Signal
+	Int5Signal
+	Int6Singal
+	Int7Signal
+)
 
 type (
+	// Error type for CPU Errors
+	Error int32
+	// Type of CPU
+	Type int32
+	// Signal external CPU events
+	Signal int32
+
+	// floatX80 not supported yet
+	floatX80 float64
+
+	// Reader accessor for read accesses
+	Reader func(int32, *Size) int32
+	// Writer accessor for write accesses
+	Writer func(int32, *Size, int32)
+	// Reset prototype
+	Reset func()
+
+	// AddressArea container for address space area
+	AddressArea struct {
+		name  string
+		read  Reader
+		write Writer
+		reset Reset
+	}
+
+	// AddressBus for accessing address areas
+	AddressBus interface {
+		read(address int32, s *Size) int32
+		write(address int32, s *Size, value int32)
+		reset()
+	}
+
 	instruction func(*M68K)
 
 	// M68K CPU core
@@ -137,4 +191,8 @@ func (cpu *M68K) Reset() {
 	cpu.a[7] = cpu.ssp
 	cpu.stopped = false
 	cpu.icount = 0
+}
+
+func (e Error) Error() string {
+	return fmt.Sprintf("CPU error %v", int32(e))
 }

@@ -1,5 +1,11 @@
 package cpu
 
+import (
+	"log"
+	"strconv"
+	"strings"
+)
+
 type (
 	// AddressBusBuilder builds a AddressBus for M68K CPU
 	AddressBusBuilder interface {
@@ -14,7 +20,16 @@ type (
 		SetISA68000() Builder
 		// SetResetHandler(resetHandler chan<- struct{})
 	}
+
+	opcode struct {
+		name                string
+		instruction         instruction
+		match, mask, eaMask uint16
+		cycles              map[rune]*int
+	}
 )
+
+var opcodeTable = []*opcode{}
 
 // NewBuilder creates a new CPU Builder object
 func NewBuilder() Builder {
@@ -177,4 +192,91 @@ func (cpu *M68K) SetISA68000() Builder {
 
 	buildInstructionTable(c, '0')
 	return cpu
+}
+
+func validEA(opcode, mask uint16) bool {
+	if mask == 0 {
+		return true
+	}
+	switch (opcode & 0x3f) >> 3 {
+	case 0x00:
+		return (mask & 0x800) != 0
+	case 0x01:
+		return (mask & 0x400) != 0
+	case 0x02:
+		return (mask & 0x200) != 0
+	case 0x03:
+		return (mask & 0x100) != 0
+	case 0x04:
+		return (mask & 0x080) != 0
+	case 0x05:
+		return (mask & 0x040) != 0
+	case 0x06:
+		switch opcode & 0x3f {
+		case 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37:
+			return (mask & 0x020) != 0
+		case 0x38:
+			return (mask & 0x010) != 0
+		case 0x39:
+			return (mask & 0x008) != 0
+		case 0x3a:
+			return (mask & 0x002) != 0
+		case 0x3b:
+			return (mask & 0x001) != 0
+		case 0x3c:
+			return (mask & 0x004) != 0
+		}
+	}
+	return false
+}
+
+func buildInstructionTable(c *M68K, r rune) {
+	var counter int
+	for _, opcode := range opcodeTable {
+		match := opcode.match
+		if opcode.cycles[r] != nil {
+			mask := opcode.mask
+			for value := uint16(0); ; {
+				index := match | value
+
+				if validEA(index, opcode.eaMask) {
+					if c.instructions[index] != nil {
+						//	log.Printf("instruction 0x%04x (%s) already set\n", index, opcode.name)
+					} else {
+						counter++
+					}
+					c.instructions[index] = opcode.instruction
+					c.cycles[index] = *opcode.cycles[r]
+				}
+
+				value = ((value | mask) + 1) & ^mask
+
+				if value == 0 {
+					break
+				}
+			}
+		}
+	}
+	log.Printf("%d cpu instructions available", counter)
+}
+
+func addOpcode(name string, ins instruction, match, mask uint16, eaMask uint16, cycles ...string) {
+	// log.Printf("add opcode %s\n", name)
+	cycleMap := map[rune]*int{}
+	for _, entry := range cycles {
+		parts := strings.Split(entry, ":")
+		c := parts[1]
+		cnt := toInt(c, 10)
+		for _, r := range parts[0] {
+			cycleMap[r] = &cnt
+		}
+	}
+	opcodeTable = append(opcodeTable, &opcode{name, ins, match, mask, eaMask, cycleMap})
+}
+
+func toInt(s string, base int) int {
+	if v, x := strconv.ParseInt(s, base, 64); x == nil {
+		return int(v)
+	}
+	panic(x)
 }

@@ -61,3 +61,9 @@ func TestSetBus(t *testing.T) {
 		builder.Build()
 	})
 }
+
+func TestISA68000(t *testing.T) {
+	// if tcpu.instructions[0xf300] != nil {
+	// 	t.Fail()
+	// }
+}

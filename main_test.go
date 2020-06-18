@@ -21,6 +21,17 @@ var (
 	tram *AddressArea = nil
 )
 
+func twrite(opcode uint16) {
+	tcpu.write(tcpu.pc, Word, int32(opcode))
+	tcpu.pc += 2
+}
+
+func trun(start int32) {
+	tcpu.pc = start
+	signals := make(chan Signal)
+	tcpu.Run(signals)
+}
+
 func TestMain(m *testing.M) {
 	mem, err := ioutil.ReadFile("testdata/etos192us.img")
 	if err != nil {

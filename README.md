@@ -71,3 +71,10 @@ Showing top 10 nodes out of 35
       40ms  3.51% 85.09%     1110ms 97.37%  github.com/jenska/go2m68k.(*M68K).Run
       40ms  3.51% 88.60%      770ms 67.54%  github.com/jenska/go2m68k.(*M68K).popPC (inline)
 ```
+
+### Generate Disassmbly
+
+Great for code review
+```bash
+go tool compile -S imisc.go cpu.go operands.go ea.go ssr.go builder.go bus.go  > cpu.asm
+```

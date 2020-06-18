@@ -162,25 +162,25 @@ func (sr *ssr) setFlags(opcode int, s *Size, result, src, dest int) {
 }
 */
 
+var conditionTable = []func(sr *ssr) bool{
+	func(sr *ssr) bool { return true },
+	func(sr *ssr) bool { return false },
+	func(sr *ssr) bool { return !sr.C && !sr.Z },
+	func(sr *ssr) bool { return sr.C || sr.Z },
+	func(sr *ssr) bool { return !sr.C },
+	func(sr *ssr) bool { return sr.C },
+	func(sr *ssr) bool { return !sr.Z },
+	func(sr *ssr) bool { return sr.Z },
+	func(sr *ssr) bool { return !sr.V },
+	func(sr *ssr) bool { return sr.V },
+	func(sr *ssr) bool { return !sr.N },
+	func(sr *ssr) bool { return sr.N },
+	func(sr *ssr) bool { return !(sr.N != sr.V) },
+	func(sr *ssr) bool { return sr.N != sr.V },
+	func(sr *ssr) bool { return (sr.N && sr.V && !sr.Z) || (!sr.N && !sr.V && !sr.Z) },
+	func(sr *ssr) bool { return sr.Z || (sr.N && !sr.V) || (!sr.N && sr.V) },
+}
+
 func (sr *ssr) testCC(code uint16) bool {
-	// TODO: performance?
-	var condition = []func() bool{
-		func() bool { return true },
-		func() bool { return false },
-		func() bool { return !sr.C && !sr.Z },
-		func() bool { return sr.C || sr.Z },
-		func() bool { return !sr.C },
-		func() bool { return sr.C },
-		func() bool { return !sr.Z },
-		func() bool { return sr.Z },
-		func() bool { return !sr.V },
-		func() bool { return sr.V },
-		func() bool { return !sr.N },
-		func() bool { return sr.N },
-		func() bool { return !(sr.N != sr.V) },
-		func() bool { return sr.N != sr.V },
-		func() bool { return (sr.N && sr.V && !sr.Z) || (!sr.N && !sr.V && !sr.Z) },
-		func() bool { return sr.Z || (sr.N && !sr.V) || (!sr.N && sr.V) },
-	}
-	return condition[code&0x0f]()
+	return conditionTable[code&0x0f](sr)
 }
