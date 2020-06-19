@@ -141,16 +141,18 @@ func (cpu *M68K) catchError() {
 			}
 			cpu.a[7] = cpu.ssp
 			cpu.push(Long, cpu.pc)
-			cpu.push(Word, int32(oldSR.bits()))
+			cpu.push(Word, oldSR.bits())
 
-			xaddr := cpu.read(int32(err)<<2, Long)
-			if xaddr == 0 {
+			if xaddr := cpu.read(int32(err)<<2, Long); xaddr == 0 {
 				if xaddr = cpu.read(int32(UnintializedInterrupt)<<2, Long); xaddr == 0 {
-					log.Print("Interrupt vector not set for uninitialised interrupt vector")
+					log.Println("Interrupt vector not set for uninitialised interrupt vector")
 					cpu.stopped = true
 				}
+			} else {
+				cpu.pc = xaddr
 			}
-			cpu.pc = xaddr
+		} else {
+			panic(r)
 		}
 	}
 }
@@ -169,7 +171,9 @@ func (cpu *M68K) Run(signals <-chan Signal) {
 				break
 			}
 		default:
-			cpu.Step()
+			cpu.ir = uint16(cpu.popPc(Word))
+			cpu.instructions[cpu.ir](cpu)
+			cpu.icount++
 		}
 	}
 }

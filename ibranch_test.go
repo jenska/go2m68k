@@ -88,35 +88,17 @@ func TestDbra(t *testing.T) {
 
 func BenchmarkDbra(b *testing.B) {
 	b.StopTimer()
-	tcpu.write(0x4000, Word, 0x7000+100) // moveq #100, d0
-	tcpu.write(0x4002, Word, 0x7200+100) // moveq #100, d1
-	tcpu.write(0x4004, Word, 0x51c9)     // dbra d1,
-	tcpu.write(0x4006, Word, 0xfffe)     // -2
-	tcpu.write(0x4008, Word, 0x51c8)     // dbra d0,
-	tcpu.write(0x400a, Word, 0xfff8)     // -8
-	tcpu.write(0x400c, Word, 0x4e72)     // stop
-	tcpu.write(0x400e, Word, 0x2700)     // #$27000
+	tcpu.pc = 0x4000
+	twrite(0x7000 + 100)   // moveq #100, d0
+	twrite(0x7200 + 100)   // moveq #100, d1
+	twrite(0x4e71)         // nop
+	twrite(0x51c9, 0xfffc) // dbra d1, #-4
+	twrite(0x51c8, 0xfff6) // dbra d0, #-10
+	twrite(0x4e72, 0x2700) // stop #$27000
 	signals := make(chan Signal)
 	b.StartTimer()
 	for j := 0; j < b.N; j++ {
 		tcpu.pc = 0x4000
 		tcpu.Run(signals)
 	}
-}
-
-func TestStop(t *testing.T) {
-	signals := make(chan Signal)
-	tcpu.write(0x400c, Word, 0x4e72) // stop
-	tcpu.write(0x400e, Word, 0x2000) // #$27000
-	tcpu.pc = 0x400c
-	tcpu.Run(signals)
-	assert.True(t, tcpu.stopped)
-	assert.Equal(t, int32(0x2000), tcpu.sr.bits())
-
-	tcpu.pc = 0x400c
-	tcpu.write(int32(PrivilegeViolationError)<<2, Long, 0x400c)
-	tcpu.sr.S = false
-	tcpu.Run(signals)
-	assert.True(t, tcpu.stopped)
-	assert.Equal(t, int32(0x2000), tcpu.sr.bits())
 }

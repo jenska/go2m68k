@@ -21,12 +21,16 @@ var (
 	tram *AddressArea = nil
 )
 
-func twrite(opcode uint16) {
-	tcpu.write(tcpu.pc, Word, int32(opcode))
-	tcpu.pc += 2
+func twrite(opcodes ...uint16) {
+	for _, opcode := range opcodes {
+		tcpu.write(tcpu.pc, Word, int32(opcode))
+		tcpu.pc += 2
+	}
 }
 
 func trun(start int32) {
+	twrite(0x4e72, 0x2700) // stop #$27000
+
 	tcpu.pc = start
 	signals := make(chan Signal)
 	tcpu.Run(signals)

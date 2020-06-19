@@ -194,38 +194,52 @@ func (cpu *M68K) SetISA68000() Builder {
 	return cpu
 }
 
+// EA Masks
+const (
+	eaMaskDataRegister    = 0x0800
+	eaMaskAddressRegister = 0x0400
+	eaMaskIndirect        = 0x0200
+	eaMaskPostIncrement   = 0x0100
+	eaMaskPreDecrement    = 0x0080
+	eaMaskDisplacement    = 0x0040
+	eaMaskIndex           = 0x0020
+	eaMaskAbsoluteShort   = 0x0010
+	eaMaskAbsoluteLong    = 0x0008
+	eaMaskImmediate       = 0x0004
+	eaMaskPCDisplacement  = 0x0002
+	eaMaskPCIndex         = 0x0001
+)
+
 func validEA(opcode, mask uint16) bool {
 	if mask == 0 {
 		return true
 	}
-	switch (opcode & 0x3f) >> 3 {
-	case 0x00:
-		return (mask & 0x800) != 0
-	case 0x01:
-		return (mask & 0x400) != 0
-	case 0x02:
-		return (mask & 0x200) != 0
-	case 0x03:
-		return (mask & 0x100) != 0
-	case 0x04:
-		return (mask & 0x080) != 0
-	case 0x05:
-		return (mask & 0x040) != 0
-	case 0x06:
-		switch opcode & 0x3f {
-		case 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37:
-			return (mask & 0x020) != 0
-		case 0x38:
-			return (mask & 0x010) != 0
-		case 0x39:
-			return (mask & 0x008) != 0
-		case 0x3a:
-			return (mask & 0x002) != 0
-		case 0x3b:
-			return (mask & 0x001) != 0
-		case 0x3c:
-			return (mask & 0x004) != 0
-		}
+
+	switch opcode & 0x3f {
+	case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07:
+		return (mask & eaMaskDataRegister) != 0
+	case 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f:
+		return (mask & eaMaskAddressRegister) != 0
+	case 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17:
+		return (mask & eaMaskIndirect) != 0
+	case 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f:
+		return (mask & eaMaskPostIncrement) != 0
+	case 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27:
+		return (mask & eaMaskPreDecrement) != 0
+	case 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f:
+		return (mask & eaMaskDisplacement) != 0
+	case 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37:
+		return (mask & eaMaskIndex) != 0
+	case 0x38:
+		return (mask & eaMaskAbsoluteShort) != 0
+	case 0x39:
+		return (mask & eaMaskAbsoluteLong) != 0
+	case 0x3a:
+		return (mask & eaMaskPCDisplacement) != 0
+	case 0x3b:
+		return (mask & eaMaskPCIndex) != 0
+	case 0x3c:
+		return (mask & eaMaskImmediate) != 0
 	}
 	return false
 }
@@ -257,6 +271,12 @@ func buildInstructionTable(c *M68K, r rune) {
 			}
 		}
 	}
+	for i := range c.instructions {
+		if c.instructions[i] == nil {
+			c.instructions[i] = illegal
+		}
+	}
+
 	log.Printf("%d cpu instructions available", counter)
 }
 

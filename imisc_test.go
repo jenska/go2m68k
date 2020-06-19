@@ -3,7 +3,7 @@ package cpu
 import (
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestClr(t *testing.T) {
@@ -22,6 +22,42 @@ func TestClr(t *testing.T) {
 	if tcpu.d[1] != 0 {
 		t.Error("must be 0")
 	}
+
+	tcpu.pc = 0x4000
+	twrite(0x7000 + 100) // moveq #100, d0
+	twrite(0x4840)       // swap d0
+	twrite(0x4200)       // clr.b d0
+	twrite(0x4840)       // swap d0
+	twrite(0x4a00)       // tst.b d0
+	// twrite(0x66)
+	twrite(0x4240) // clr.w d0
+	twrite(0x4280) // clr.l d0
+	trun(0x4000)
+	assert.Equal(t, int32(0), tcpu.d[0])
+}
+
+func TestIllegal(t *testing.T) {
+	tcpu.pc = 0x4000
+	twrite(0x4afc) // illegal
+	trun(0x4000)
+}
+
+func TestStop(t *testing.T) {
+	signals := make(chan Signal)
+	tcpu.write(0x400c, Word, 0x4e72) // stop
+	tcpu.write(0x400e, Word, 0x2000) // #$2000
+	tcpu.pc = 0x400c
+	tcpu.Run(signals)
+	assert.True(t, tcpu.stopped)
+	assert.Equal(t, int32(0x2000), tcpu.sr.bits())
+
+	tcpu.pc = 0x400c
+	tcpu.write(int32(PrivilegeViolationError)<<2, Long, 0x400c)
+	tcpu.sr.S = false
+	tcpu.Run(signals)
+	assert.Equal(t, int32(0x400c), tcpu.pc)
+	assert.True(t, tcpu.sr.S)
+	assert.Equal(t, int32(0x2000), tcpu.sr.bits())
 }
 
 func TestSwap(t *testing.T) {

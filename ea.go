@@ -1,5 +1,13 @@
 package cpu
 
+const (
+	eaModeIndirect      = 0b010000
+	eaModeAbsoluteShort = 0b111000
+	eaModeAbsoluteLong  = 0b111001
+	eaModeImmidiate     = 0b111100
+	eaModeDisplacement  = 0b101000
+)
+
 type (
 	ea interface {
 		init(cpu *M68K, o *Size) modifier
@@ -8,6 +16,7 @@ type (
 	}
 
 	modifier interface {
+		computedAddress() int32
 		read() int32
 		write(int32)
 	}
@@ -36,6 +45,7 @@ type (
 
 	eaAbsolute struct {
 		cpu     *M68K
+		eaSize  *Size
 		size    *Size
 		address int32
 	}
@@ -63,8 +73,8 @@ var (
 		&eaPreDecrement{eaRegister{reg: ax}, 0},
 		&eaDisplacement{eaRegister{reg: ax}, 0},
 		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ax}, 0}, ix68000},
-		&eaAbsolute{size: Word},
-		&eaAbsolute{size: Long},
+		&eaAbsolute{eaSize: Word},
+		&eaAbsolute{eaSize: Long},
 		&eaPCDisplacement{eaRegister{reg: nil}, 0},
 		&eaPCIndirectIndex{eaRegisterIndirect{eaRegister{reg: nil}, 0}, ix68000},
 		&eaImmediate{},
@@ -76,11 +86,10 @@ var (
 		&eaRegisterIndirect{eaRegister{reg: ay}, 0},
 		&eaPostIncrement{eaRegister{reg: ay}, 0},
 		&eaPreDecrement{eaRegister{reg: ay}, 0},
-		&eaPreDecrement{eaRegister{reg: ay}, 0},
 		&eaDisplacement{eaRegister{reg: ay}, 0},
 		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ay}, 0}, ix68000},
-		&eaAbsolute{size: Word},
-		&eaAbsolute{size: Long},
+		&eaAbsolute{eaSize: Word},
+		&eaAbsolute{eaSize: Long},
 		&eaPCDisplacement{eaRegister{reg: nil}, 0},
 		&eaPCIndirectIndex{eaRegisterIndirect{eaRegister{reg: nil}, 0}, ix68000},
 		&eaStatusRegister{},
@@ -94,8 +103,8 @@ var (
 		&eaPreDecrement{eaRegister{reg: ax}, 0},
 		&eaDisplacement{eaRegister{reg: ax}, 0},
 		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ax}, 0}, ix68020},
-		&eaAbsolute{size: Word},
-		&eaAbsolute{size: Long},
+		&eaAbsolute{eaSize: Word},
+		&eaAbsolute{eaSize: Long},
 		&eaPCDisplacement{eaRegister{reg: nil}, 0},
 		&eaPCIndirectIndex{eaRegisterIndirect{eaRegister{reg: nil}, 0}, ix68020},
 		&eaImmediate{},
@@ -107,11 +116,10 @@ var (
 		&eaRegisterIndirect{eaRegister{reg: ay}, 0},
 		&eaPostIncrement{eaRegister{reg: ay}, 0},
 		&eaPreDecrement{eaRegister{reg: ay}, 0},
-		&eaPreDecrement{eaRegister{reg: ay}, 0},
 		&eaDisplacement{eaRegister{reg: ay}, 0},
 		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ay}, 0}, ix68020},
-		&eaAbsolute{size: Word},
-		&eaAbsolute{size: Long},
+		&eaAbsolute{eaSize: Word},
+		&eaAbsolute{eaSize: Long},
 		&eaPCDisplacement{eaRegister{reg: nil}, 0},
 		&eaPCIndirectIndex{eaRegisterIndirect{eaRegister{reg: nil}, 0}, ix68020},
 		&eaStatusRegister{},
@@ -225,8 +233,12 @@ func (ea *eaPreDecrement) init(cpu *M68K, o *Size) modifier {
 
 func (ea *eaDisplacement) init(cpu *M68K, o *Size) modifier {
 	ea.cpu, ea.size = cpu, o
-	ea.address = *ea.reg(cpu) + cpu.popPc(Word)
+	ea.address = *ea.reg(cpu) + int32(int16(cpu.popPc(Word)))
 	return ea
+}
+
+func (ea *eaDisplacement) computedAddress() int32 {
+	return ea.address
 }
 
 func (ea *eaPCDisplacement) init(cpu *M68K, o *Size) modifier {
@@ -255,7 +267,7 @@ func (ea *eaPCIndirectIndex) init(cpu *M68K, o *Size) modifier {
 
 func (ea *eaAbsolute) init(cpu *M68K, o *Size) modifier {
 	ea.cpu, ea.size = cpu, o
-	ea.address = cpu.popPc(o)
+	ea.address = cpu.popPc(ea.eaSize)
 	return ea
 }
 
