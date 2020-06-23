@@ -30,6 +30,15 @@ func twrite(opcodes ...uint16) {
 
 func trun(start int32) {
 	twrite(0x4e72, 0x2700) // stop #$27000
+	tcpu.write(int32(IllegalInstruction)<<2, Long, tcpu.pc)
+	twrite(0x7e00 + uint16(IllegalInstruction)) // moveq #IllegalInstruction, d7
+	twrite(0x4e73)                              // rte
+	tcpu.write(int32(PrivilegeViolationError)<<2, Long, tcpu.pc)
+	twrite(0x7e00 + uint16(PrivilegeViolationError)) // moveq #PrivilegeViolationError, d7
+	twrite(0x4e73)                                   // rte
+	tcpu.write(int32(UnintializedInterrupt)<<2, Long, tcpu.pc)
+	twrite(0x7e00 + uint16(UnintializedInterrupt)) // moveq #UnintializedInterrupt, d7
+	twrite(0x4e73)                                 // rte
 
 	tcpu.pc = start
 	signals := make(chan Signal)

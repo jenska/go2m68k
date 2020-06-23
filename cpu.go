@@ -23,7 +23,6 @@ Showing top 10 nodes out of 25
 */
 import (
 	"fmt"
-	"log"
 )
 
 // TODO:
@@ -145,8 +144,8 @@ func (cpu *M68K) catchError() {
 
 			if xaddr := cpu.read(int32(err)<<2, Long); xaddr == 0 {
 				if xaddr = cpu.read(int32(UnintializedInterrupt)<<2, Long); xaddr == 0 {
-					log.Println("Interrupt vector not set for uninitialised interrupt vector")
-					cpu.stopped = true
+					panic("Interrupt vector not set for uninitialised interrupt vector")
+					// cpu.stopped = true
 				}
 			} else {
 				cpu.pc = xaddr
@@ -159,7 +158,6 @@ func (cpu *M68K) catchError() {
 
 // Run until halted
 func (cpu *M68K) Run(signals <-chan Signal) {
-	defer cpu.catchError()
 	cpu.stopped = false
 	for !cpu.stopped {
 		select {
@@ -171,9 +169,7 @@ func (cpu *M68K) Run(signals <-chan Signal) {
 				break
 			}
 		default:
-			cpu.ir = uint16(cpu.popPc(Word))
-			cpu.instructions[cpu.ir](cpu)
-			cpu.icount++
+			cpu.Step()
 		}
 	}
 }

@@ -6,6 +6,7 @@ func init() {
 	addOpcode("rts", rts, 0x4e75, 0xffff, 0x0000, "01:16", "7:15", "234fc:10")
 	addOpcode("rtr", rtr, 0x4e77, 0xffff, 0x0000, "01:20", "7:22", "234fc:14")
 	addOpcode("jmp ea", jmp, 0x4ec0, 0xffc0, 0x27b, "01:4", "7:7", "234fc:0")
+	addOpcode("rte  ; 68000", rte68000, 0x4e73, 0xffff, 0x0000, "0:20")
 }
 
 func bcc(c *M68K) {
@@ -30,7 +31,9 @@ func bcc(c *M68K) {
 		// c.cycles +=
 	} else {
 		// c.cycles +=
-		c.pc += Word.size
+		if dis == 0 {
+			c.pc += Word.size
+		}
 	}
 }
 
@@ -62,4 +65,15 @@ func rtr(c *M68K) {
 
 func jmp(c *M68K) {
 	c.pc = c.resolveDstEA(Long).computedAddress()
+}
+
+func rte68000(c *M68K) {
+	if c.sr.S {
+		newSR := c.pop(Word)
+		newPC := c.pop(Long)
+		c.pc = newPC
+		c.sr.setbits(newSR)
+	} else {
+		panic(PrivilegeViolationError)
+	}
 }

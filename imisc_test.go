@@ -55,7 +55,7 @@ func TestStop(t *testing.T) {
 	tcpu.write(int32(PrivilegeViolationError)<<2, Long, 0x400c)
 	tcpu.sr.S = false
 	tcpu.Run(signals)
-	assert.Equal(t, int32(0x400c), tcpu.pc)
+	assert.Equal(t, int32(0x4010), tcpu.pc)
 	assert.True(t, tcpu.sr.S)
 	assert.Equal(t, int32(0x2000), tcpu.sr.bits())
 }

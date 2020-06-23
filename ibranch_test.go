@@ -53,6 +53,14 @@ func TestBsr16(t *testing.T) {
 	assert.Equal(t, int32(2), tcpu.d[0])
 }
 
+func TestJmp(t *testing.T) {
+	tcpu.pc = 0x4000
+	twrite(0x4ec0)
+	trun(0x4000)
+
+	assert.Equal(t, int32(IllegalInstruction), tcpu.d[7])
+}
+
 func TestDbra(t *testing.T) {
 	tcpu.write(0x4000, Word, 0x7005) // moveq #5, d0
 	tcpu.write(0x4002, Word, 0x51c8) // dbra d0,

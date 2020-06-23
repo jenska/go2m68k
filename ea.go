@@ -2,6 +2,8 @@ package cpu
 
 const (
 	eaModeIndirect      = 0b010000
+	eaModePostIncrement = 0b011000
+	eaModePreDecrement  = 0b100000
 	eaModeAbsoluteShort = 0b111000
 	eaModeAbsoluteLong  = 0b111001
 	eaModeImmidiate     = 0b111100
@@ -66,13 +68,13 @@ type (
 
 var (
 	eaSrc68000 = []ea{
-		&eaRegister{reg: dx},
-		&eaRegister{reg: ax},
-		&eaRegisterIndirect{eaRegister{reg: ax}, 0},
-		&eaPostIncrement{eaRegister{reg: ax}, 0},
-		&eaPreDecrement{eaRegister{reg: ax}, 0},
-		&eaDisplacement{eaRegister{reg: ax}, 0},
-		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ax}, 0}, ix68000},
+		&eaRegister{reg: dy},
+		&eaRegister{reg: ay},
+		&eaRegisterIndirect{eaRegister{reg: ay}, 0},
+		&eaPostIncrement{eaRegister{reg: ay}, 0},
+		&eaPreDecrement{eaRegister{reg: ay}, 0},
+		&eaDisplacement{eaRegister{reg: ay}, 0},
+		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ay}, 0}, ix68000},
 		&eaAbsolute{eaSize: Word},
 		&eaAbsolute{eaSize: Long},
 		&eaPCDisplacement{eaRegister{reg: nil}, 0},
@@ -96,13 +98,13 @@ var (
 	}
 
 	eaSrc68020 = []ea{
-		&eaRegister{reg: dx},
-		&eaRegister{reg: ax},
-		&eaRegisterIndirect{eaRegister{reg: ax}, 0},
-		&eaPostIncrement{eaRegister{reg: ax}, 0},
-		&eaPreDecrement{eaRegister{reg: ax}, 0},
-		&eaDisplacement{eaRegister{reg: ax}, 0},
-		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ax}, 0}, ix68020},
+		&eaRegister{reg: dy},
+		&eaRegister{reg: ay},
+		&eaRegisterIndirect{eaRegister{reg: ay}, 0},
+		&eaPostIncrement{eaRegister{reg: ay}, 0},
+		&eaPreDecrement{eaRegister{reg: ay}, 0},
+		&eaDisplacement{eaRegister{reg: ay}, 0},
+		&eaIndirectIndex{eaRegisterIndirect{eaRegister{reg: ay}, 0}, ix68020},
 		&eaAbsolute{eaSize: Word},
 		&eaAbsolute{eaSize: Long},
 		&eaPCDisplacement{eaRegister{reg: nil}, 0},
@@ -128,11 +130,11 @@ var (
 
 // TODO add cycles
 func (cpu *M68K) resolveSrcEA(o *Size) modifier {
-	mode := (cpu.ir >> 6) & 0x07
+	mode := (cpu.ir >> 3) & 0x07
 	if mode < 7 {
 		return cpu.eaSrc[mode].init(cpu, o)
 	}
-	return cpu.eaSrc[mode+x(cpu.ir)].init(cpu, o)
+	return cpu.eaSrc[mode+y(cpu.ir)].init(cpu, o)
 }
 
 // TODO add cycles
@@ -151,7 +153,7 @@ func (cpu *M68K) push(s *Size, value int32) {
 
 func (cpu *M68K) pop(s *Size) int32 {
 	res := cpu.read(cpu.a[7], s)
-	cpu.pc += s.size // sometimes odd
+	cpu.a[7] += s.size // sometimes odd
 	return res
 }
 
@@ -219,6 +221,14 @@ func (ea *eaPostIncrement) init(cpu *M68K, o *Size) modifier {
 	return ea
 }
 
+func (ea *eaPostIncrement) read() int32 {
+	return ea.cpu.read(ea.address, ea.size)
+}
+
+func (ea *eaPostIncrement) write(v int32) {
+	ea.cpu.write(ea.address, ea.size, v)
+}
+
 // -------------------------------------------------------------------
 // Pre decrement
 
@@ -226,6 +236,14 @@ func (ea *eaPreDecrement) init(cpu *M68K, o *Size) modifier {
 	*ea.reg(cpu) -= o.size
 	ea.cpu, ea.size, ea.address = cpu, o, *ea.reg(cpu)
 	return ea
+}
+
+func (ea *eaPreDecrement) read() int32 {
+	return ea.cpu.read(ea.address, ea.size)
+}
+
+func (ea *eaPreDecrement) write(v int32) {
+	ea.cpu.write(ea.address, ea.size, v)
 }
 
 // -------------------------------------------------------------------
