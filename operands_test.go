@@ -32,3 +32,13 @@ func TestSignedHexStringMsb(t *testing.T) {
 	str2 := Word.SignedHexString(0x8000)
 	assert.Equal(t, "$8000", str2)
 }
+
+func TestSet(t *testing.T) {
+	d := int32(0)
+	Byte.set(-1, &d)
+	assert.Equal(t, int32(0xff), d)
+	Word.set(-1, &d)
+	assert.Equal(t, int32(0xffff), d)
+	Long.set(-1, &d)
+	assert.Equal(t, int32(-1), d)
+}

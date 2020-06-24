@@ -2,7 +2,6 @@ package cpu
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"testing"
 )
@@ -58,8 +57,5 @@ func TestMain(m *testing.M) {
 	builder.SetBus(tbus)
 	builder.SetISA68000()
 	tcpu = builder.Build()
-	log.Println(tcpu)
-	result := m.Run()
-	log.Println(tcpu)
-	os.Exit(result)
+	os.Exit(m.Run())
 }

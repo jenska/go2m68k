@@ -157,6 +157,7 @@ func (cpu *M68K) catchError() {
 }
 
 // Run until halted
+// TODO: prefetch in goroutine?
 func (cpu *M68K) Run(signals <-chan Signal) {
 	cpu.stopped = false
 	for !cpu.stopped {
