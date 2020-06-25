@@ -73,5 +73,33 @@ func TestNbcd(t *testing.T) {
 	assert.Equal(t, int32(0x98), tcpu.d[4])
 	assert.Equal(t, int32(0x99), tcpu.d[5])
 	assert.Equal(t, int32(0x99), tcpu.d[6])
-
 }
+
+/*
+func Benchmark(b *testing.B) {
+	b.StopTimer()
+	tcpu.pc = 0x4000
+
+	twrite(0x3040+eaModeImmidiate, 0x1000) // movea.w #$1000, a0
+	twrite(0x3240+eaModeImmidiate, 0x1100) // movea.w #$1100, a1
+
+	twrite(0x7000 + 100)                     // moveq #100, d0
+	twrite(0x4200 + eaMaskPostIncrement + 0) // clr.b (a0)+
+	twrite(0x4200 + eaMaskPostIncrement + 1) // clr.b (a1)+
+	twrite(0x51c8, 0xfffc)                   // dbra d0, #-4
+
+	twrite(0x7000 + 100)                        // moveq #100, d0
+	twrite(0x7200 + 100)                        // moveq #100, d1
+	twrite(0x4e71)                              // abcd -(a0), -(a1)
+	twrite(0x51c9, 0xfffc)                      // dbra d1, #-4
+	twrite(0x41c0+eaModeDisplacement+0, 0x0100) // lea $100(a0), a0
+	twrite(0x43c0+eaModeDisplacement+1, 0x0100) // lea $100(a1), a1
+	twrite(0x51c8, 0xfff6)                      // dbra d0, #-10
+	signals := make(chan Signal)
+	b.StartTimer()
+	for j := 0; j < b.N; j++ {
+		tcpu.pc = 0x4000
+		tcpu.Run(signals)
+	}
+}
+*/

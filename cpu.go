@@ -144,7 +144,7 @@ func (cpu *M68K) catchError() {
 
 			if xaddr := cpu.read(int32(err)<<2, Long); xaddr == 0 {
 				if xaddr = cpu.read(int32(UnintializedInterrupt)<<2, Long); xaddr == 0 {
-					panic("Interrupt vector not set for uninitialised interrupt vector")
+					panic(fmt.Sprintf("Interrupt vector not set for uninitialised interrupt vector from 0x%08x", cpu.pc))
 					// cpu.stopped = true
 				}
 			} else {

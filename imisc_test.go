@@ -13,15 +13,9 @@ func TestClr(t *testing.T) {
 	tcpu.write(0x4006, Word, 0x4201)     // clr.b d1
 	tcpu.write(0x4008, Word, 0x4e72)     // stop
 	tcpu.write(0x400a, Word, 0x2700)     // #$27000
-	tcpu.pc = 0x4000
-	signals := make(chan Signal)
-	tcpu.Run(signals)
-	if tcpu.d[0] != 0 {
-		t.Error("must be 0")
-	}
-	if tcpu.d[1] != 0 {
-		t.Error("must be 0")
-	}
+	trun(0x4000)
+	assert.Equal(t, int32(0), tcpu.d[0])
+	assert.Equal(t, int32(0), tcpu.d[1])
 
 	tcpu.pc = 0x4000
 	twrite(0x7000 + 100) // moveq #100, d0
@@ -29,9 +23,8 @@ func TestClr(t *testing.T) {
 	twrite(0x4200)       // clr.b d0
 	twrite(0x4840)       // swap d0
 	twrite(0x4a00)       // tst.b d0
-	// twrite(0x66)
-	twrite(0x4240) // clr.w d0
-	twrite(0x4280) // clr.l d0
+	twrite(0x4240)       // clr.w d0
+	twrite(0x4280)       // clr.l d0
 	trun(0x4000)
 	assert.Equal(t, int32(0), tcpu.d[0])
 }

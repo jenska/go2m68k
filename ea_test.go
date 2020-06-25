@@ -34,7 +34,7 @@ func TestDisplacement(t *testing.T) {
 
 func TestAbsolute(t *testing.T) {
 	tcpu.pc = 0x4000
-	twrite(0x41c0+eaModeAbsoluteShort, 0x0001)        // lea $1.w, a0 ==> illegal instruction error
+	twrite(0x41c0+eaModeAbsoluteShort, 0x0001)        // lea $1.w, a0
 	twrite(0x43c0+eaModeAbsoluteLong, 0x0000, 0x0001) // lea $1.l, a1
 	twrite(0x45c0+eaModeAbsoluteLong, 0x0000, 0x5000) // lea $1.l, a2
 	trun(0x4000)

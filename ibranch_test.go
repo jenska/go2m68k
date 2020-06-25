@@ -102,7 +102,6 @@ func BenchmarkDbra(b *testing.B) {
 	twrite(0x4e71)         // nop
 	twrite(0x51c9, 0xfffc) // dbra d1, #-4
 	twrite(0x51c8, 0xfff6) // dbra d0, #-10
-	twrite(0x4e72, 0x2700) // stop #$27000
 	signals := make(chan Signal)
 	b.StartTimer()
 	for j := 0; j < b.N; j++ {
