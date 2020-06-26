@@ -3,5 +3,5 @@
 *.prof
 *.test
 *.o
-*.asm
-*.s
+*.out
+*.bin

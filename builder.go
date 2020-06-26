@@ -94,11 +94,12 @@ func (aat addressAreaTable) Build() AddressBus {
 // Runtime behaviour:
 // If a write accessor is nil, the access to the address area will panic a BusError
 // If reset is nil, no reset will be perfomed
-func NewAddressArea(read Reader, write Writer, reset Reset) *AddressArea {
+func NewAddressArea(raw []byte, read Reader, write Writer, reset Reset) *AddressArea {
 	if read == nil {
 		panic("read accessor is mandatory")
 	}
 	return &AddressArea{
+		raw:   raw,
 		read:  read,
 		write: write,
 		reset: reset,
@@ -111,7 +112,7 @@ func NewROMArea(mem []byte) *AddressArea {
 		panic("mem must not be nil or of size 0")
 	}
 	rom := mem
-	return NewAddressArea(
+	return NewAddressArea(rom,
 		func(offset int32, s *Size) int32 {
 			return s.read(rom[offset:])
 		},
@@ -122,7 +123,7 @@ func NewROMArea(mem []byte) *AddressArea {
 // NewRAMArea returns a RAM address area
 func NewRAMArea(size uint32) *AddressArea {
 	ram := make([]byte, size)
-	return NewAddressArea(
+	return NewAddressArea(ram,
 		func(offset int32, s *Size) int32 {
 			return s.read(ram[offset:])
 		},
@@ -146,13 +147,13 @@ func NewBaseArea(ssp, pc int32, size uint32) *AddressArea {
 	Long.write(ram[0:], ssp)
 	Long.write(ram[4:], pc)
 
-	return NewAddressArea(
+	return NewAddressArea(ram,
 		func(offset int32, s *Size) int32 {
 			return s.read(ram[offset:])
 		},
 		func(offset int32, s *Size, value int32) {
 			if offset < 8 {
-				panic(BusError)
+				panic(NewError(BusError, nil, offset, nil))
 			}
 			s.write(ram[offset:], value)
 		},
@@ -175,17 +176,17 @@ func (cpu *M68K) SetISA68000() Builder {
 	c := cpu
 	cpu.read = func(a int32, s *Size) int32 {
 		if a&1 == 1 && s != Byte {
-			panic(AdressError)
+			panic(NewError(AdressError, nil, a, nil))
 		}
 		return c.bus.read(a&0x00ffffff, s)
 	}
 
 	cpu.write = func(a int32, s *Size, value int32) {
 		if a&1 == 1 && s != Byte {
-			panic(AdressError)
+			panic(NewError(AdressError, nil, a, nil))
 		}
 		if !c.sr.S && a < 0x800 {
-			panic(PrivilegeViolationError)
+			panic(NewError(PrivilegeViolationError, nil, a, nil))
 		}
 		c.bus.write(a&0x00ffffff, s, value)
 	}

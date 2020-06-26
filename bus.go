@@ -19,7 +19,7 @@ func (aat addressAreaTable) read(address int32, s *Size) int32 {
 			return read(address-handler.offset, s)
 		}
 	}
-	panic(BusError)
+	panic(NewError(BusError, nil, address, nil))
 }
 
 // Write writes a value to address or panics a BusError
@@ -30,7 +30,7 @@ func (aat addressAreaTable) write(address int32, s *Size, value int32) {
 			return
 		}
 	}
-	panic(BusError)
+	panic(NewError(BusError, nil, address, nil))
 }
 
 // Reset all areas

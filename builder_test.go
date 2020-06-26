@@ -29,6 +29,7 @@ func TestNewAddressArea(t *testing.T) {
 	ram := make([]byte, 1000)
 	assert.Panics(t, func() {
 		NewAddressArea(
+			ram,
 			nil,
 			func(offset int32, s *Size, value int32) {
 				s.write(ram[offset:], value)

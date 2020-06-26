@@ -13,6 +13,10 @@ go2m68k is a work-in-progress project; as such, expect bugs and a lot of missing
 - Tracing feature (t0, t1)
 - WaitGroups for bus access
 
+## Build
+
+Requires binutils-m68k-linux-gnu to run m68k-linux-gnu-as
+
 ### Performance
 
 For performance measurement a bechmark is used that runs simple 68000 machine code.

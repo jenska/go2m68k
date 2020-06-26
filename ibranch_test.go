@@ -6,14 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBra8(t *testing.T) {
-	tcpu.Reset()
-	tcpu.pc = romTop
-	tcpu.Step()
-	assert.Equal(t, romTop+0x30, tcpu.pc)
-	assert.Equal(t, 1, tcpu.icount)
-}
-
 func TestBra16(t *testing.T) {
 	tcpu.pc = 0x4000
 	twrite(0x6000) // bra
@@ -51,14 +43,6 @@ func TestBsr16(t *testing.T) {
 	twrite(0x4e75) // rts
 	trun(0x4000)
 	assert.Equal(t, int32(2), tcpu.d[0])
-}
-
-func TestJmp(t *testing.T) {
-	tcpu.pc = 0x4000
-	twrite(0x4ec0)
-	trun(0x4000)
-
-	assert.Equal(t, int32(IllegalInstruction), tcpu.d[7])
 }
 
 func TestDbra(t *testing.T) {
@@ -102,10 +86,12 @@ func BenchmarkDbra(b *testing.B) {
 	twrite(0x4e71)         // nop
 	twrite(0x51c9, 0xfffc) // dbra d1, #-4
 	twrite(0x51c8, 0xfff6) // dbra d0, #-10
+	twrite(0x4e72, 0x2700)
 	signals := make(chan Signal)
 	b.StartTimer()
 	for j := 0; j < b.N; j++ {
 		tcpu.pc = 0x4000
 		tcpu.Run(signals)
 	}
+	// fmt.Println(tcpu.icount)
 }

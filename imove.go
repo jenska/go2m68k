@@ -18,3 +18,31 @@ func moveq(c *M68K) {
 	c.sr.setLogicalFlags(Long, res)
 	*dx(c) = res
 }
+
+/*
+42c0 fff8 move     w .          1234fc:4
+	DY() = MASK_OUT_BELOW_16(DY()) | m68ki_get_ccr()
+
+
+42c0 ffc0 move     w A+-DXWL    1:8 234fc:4
+	m68ki_write_16(M68KMAKE_GET_EA_AY_16, m68ki_get_ccr())
+
+
+44c0 fff8 move     w .          01:12 7:10 234fc:4
+	m68ki_set_ccr(DY())
+
+
+44c0 ffc0 move     w A+-DXWLdxI 01:12 7:10 234fc:4
+	m68ki_set_ccr(M68KMAKE_GET_OPER_AY_16)
+
+	40c0 fff8 move     w .          0:6 7:7
+	DY() = MASK_OUT_BELOW_16(DY()) | m68ki_get_sr()
+
+
+40c0 fff8 move     w .          1:4p 234fc:8p
+	if(m_s_flag)
+		DY() = MASK_OUT_BELOW_16(DY()) | m68ki_get_sr()
+	} else {
+		m68ki_exception_privilege_violation()
+	}
+*/

@@ -1,5 +1,9 @@
 package cpu
 
+import (
+	"runtime/debug"
+)
+
 func init() {
 	addOpcode("abcd dx, dy", abcdRR, 0xc100, 0xf1f8, 0x0000, "01:6", "7:10", "234fc:4")
 	addOpcode("abcd -(ax), -(ay)", abcdMM, 0xc108, 0xf1f8, 0x0000, "01:18", "7:31", "234fc:16")
@@ -83,6 +87,9 @@ func sbcdMM(c *M68K) {
 func nbcd(c *M68K) {
 	ea := c.resolveDstEA(Byte)
 	dst := ea.read()
+	if dst == 0xff {
+		debug.PrintStack()
+	}
 	res := -dst - c.sr.x1()
 	c.sr.X = res != 0
 	if (res|dst)&0xf == 0 {

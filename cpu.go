@@ -23,6 +23,7 @@ Showing top 10 nodes out of 25
 */
 import (
 	"fmt"
+	"log"
 )
 
 // TODO:
@@ -30,15 +31,13 @@ import (
 //  add tracing (t0,t1)
 // Exceptions handled by emulation
 const (
-	MMUAtcEntries = 22  // 68851 has 64, 030 has 22
-	M68KICSize    = 128 // instruction cache size
-
-	BusError                Error = 2
-	AdressError             Error = 3
-	IllegalInstruction      Error = 4
-	ZeroDivideError         Error = 5
-	PrivilegeViolationError Error = 8
-	UnintializedInterrupt   Error = 15
+	BusError                = 2
+	AdressError             = 3
+	IllegalInstruction      = 4
+	ZeroDivideError         = 5
+	PrivilegeViolationError = 8
+	UnintializedInterrupt   = 15
+	TrapBase                = 32
 
 	HaltSignal Signal = iota
 	ResetSignal
@@ -53,7 +52,14 @@ const (
 
 type (
 	// Error type for CPU Errors
-	Error int32
+	Error struct {
+		index   int32
+		name    string
+		address *int32
+		ir      *uint16
+		x       *int32
+	}
+
 	// Type of CPU
 	Type int32
 	// Signal external CPU events
@@ -71,9 +77,9 @@ type (
 
 	// AddressArea container for address space area
 	AddressArea struct {
-		name  string
 		read  Reader
 		write Writer
+		raw   []byte
 		reset Reset
 	}
 
@@ -133,6 +139,7 @@ func (cpu *M68K) String() string {
 func (cpu *M68K) catchError() {
 	if r := recover(); r != nil {
 		if err, ok := r.(Error); ok {
+			log.Printf("cpu.catchError: %s\n", err)
 			oldSR := cpu.sr
 			if !cpu.sr.S {
 				cpu.sr.S = true
@@ -142,8 +149,8 @@ func (cpu *M68K) catchError() {
 			cpu.push(Long, cpu.pc)
 			cpu.push(Word, oldSR.bits())
 
-			if xaddr := cpu.read(int32(err)<<2, Long); xaddr == 0 {
-				if xaddr = cpu.read(int32(UnintializedInterrupt)<<2, Long); xaddr == 0 {
+			if xaddr := cpu.read(err.index<<2, Long); xaddr == 0 {
+				if xaddr = cpu.read(UnintializedInterrupt<<2, Long); xaddr == 0 {
 					panic(fmt.Sprintf("Interrupt vector not set for uninitialised interrupt vector from 0x%08x", cpu.pc))
 					// cpu.stopped = true
 				}
@@ -181,6 +188,7 @@ func (cpu *M68K) Step() *M68K {
 	cpu.ir = uint16(cpu.popPc(Word))
 	cpu.instructions[cpu.ir](cpu)
 	cpu.icount++
+	// TODO: trace
 	return cpu
 }
 
@@ -194,6 +202,34 @@ func (cpu *M68K) Reset() {
 	cpu.icount = 0
 }
 
+var errorString = map[int32]string{
+	BusError:                "bus error",
+	IllegalInstruction:      "illegal instruction",
+	PrivilegeViolationError: "privilege violation",
+}
+
+// NewError creates a new CPU Error object
+func NewError(index int32, c *M68K, address int32, extra *int32) Error {
+	res := Error{index: index, x: extra}
+	pc := address
+	res.address = &pc
+	if c != nil {
+		ir := c.ir
+		res.ir = &ir
+	}
+	return res
+}
+
 func (e Error) Error() string {
-	return fmt.Sprintf("CPU error %v", int32(e))
+	dsc := errorString[e.index]
+	if e.x != nil && dsc != "" {
+		dsc = fmt.Sprintf(dsc, e.x)
+	} else if dsc == "" {
+		dsc = fmt.Sprintf("error %d", e.index)
+	}
+
+	if e.ir != nil {
+		return fmt.Sprintf("cpu %s (PC %08x, IR %04x)", dsc, *e.address, *e.ir)
+	}
+	return fmt.Sprintf("cpu %s at %08x", dsc, *e.address)
 }

@@ -53,7 +53,7 @@ func TestPrivileViolationException(t *testing.T) {
 	})
 
 	oldV := tcpu.read(100, Long)
-	assert.PanicsWithValue(t, PrivilegeViolationError, func() {
+	assert.Panics(t, func() {
 		tcpu.write(100, Long, 0)
 	})
 
@@ -66,16 +66,16 @@ func TestPrivileViolationException(t *testing.T) {
 func TestAddressError(t *testing.T) {
 	oldV := tcpu.read(100, Long)
 
-	assert.PanicsWithValue(t, AdressError, func() {
+	assert.Panics(t, func() {
 		tcpu.read(101, Long)
 	})
-	assert.PanicsWithValue(t, AdressError, func() {
+	assert.Panics(t, func() {
 		tcpu.read(101, Word)
 	})
-	assert.PanicsWithValue(t, AdressError, func() {
+	assert.Panics(t, func() {
 		tcpu.write(101, Long, 0)
 	})
-	assert.PanicsWithValue(t, AdressError, func() {
+	assert.Panics(t, func() {
 		tcpu.write(101, Word, 0)
 	})
 
@@ -86,9 +86,4 @@ func TestPop(t *testing.T) {
 	assert.NotEqual(t, 0, tcpu.a[7])
 	tcpu.push(Long, 1001)
 	assert.Equal(t, int32(1001), tcpu.pop(Long))
-}
-
-func TestError(t *testing.T) {
-	assert.NotNil(t, BusError.Error())
-	assert.NotNil(t, AdressError.Error())
 }

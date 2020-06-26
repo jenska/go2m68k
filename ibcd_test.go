@@ -25,7 +25,7 @@ func TestAbcd(t *testing.T) {
 	twrite(0xc50b)                           // abcd -(a2), -(a3)
 	twrite(0xc50b)                           // abcd -(a2), -(a3)
 	twrite(0xc50b)                           // abcd -(a2), -(a3)
-	twrite(0x2040+eaModeIndirect+3, 0x1238)  // movea.l (a3), a0
+	twrite(0x2040 + eaModeIndirect + 3)      // movea.l (a3), a0
 	trun(0x4000)
 	// fmt.Println(tcpu)
 	assert.Equal(t, int32(3), tcpu.d[0])
@@ -46,7 +46,7 @@ func TestSbcd(t *testing.T) {
 	twrite(0x850b)                           // sbcd -(a2), -(a3)
 	twrite(0x850b)                           // sbcd -(a2), -(a3)
 	twrite(0x850b)                           // sbcd -(a2), -(a3)
-	twrite(0x2040+eaModeIndirect+3, 0x1238)  // movea.l (a3), a0
+	twrite(0x2040 + eaModeIndirect + 3)      // movea.l (a3), a0
 	trun(0x4000)
 	//	fmt.Println(tcpu)
 	assert.Equal(t, int32(1), tcpu.d[0])
@@ -55,7 +55,7 @@ func TestSbcd(t *testing.T) {
 
 func TestNbcd(t *testing.T) {
 	tcpu.pc = 0x4000
-	twrite(0x7011, 0x7222, 0x7433, 0x7644, 0x7801, 0x7900, 0x7bff) // moveq d0=0x11, d1=0x22, d2=0x33, d3=0x44, d4=1, d5=0, d6=-1
+	twrite(0x7011, 0x7222, 0x7433, 0x7644, 0x7801, 0x7A00, 0x7Cff) // moveq d0=0x11, d1=0x22, d2=0x33, d3=0x44, d4=1, d5=0
 
 	twrite(0x4800) // nbcd d0
 	twrite(0x4801) // nbcd d1
@@ -63,7 +63,6 @@ func TestNbcd(t *testing.T) {
 	twrite(0x4803) // nbcd d3
 	twrite(0x4804) // nbcd d4
 	twrite(0x4805) // nbcd d5
-	twrite(0x4806) // nbcd d6
 	trun(0x4000)
 	//fmt.Println(tcpu)
 	assert.Equal(t, int32(0x89), tcpu.d[0])
@@ -72,7 +71,6 @@ func TestNbcd(t *testing.T) {
 	assert.Equal(t, int32(0x55), tcpu.d[3])
 	assert.Equal(t, int32(0x98), tcpu.d[4])
 	assert.Equal(t, int32(0x99), tcpu.d[5])
-	assert.Equal(t, int32(0x99), tcpu.d[6])
 }
 
 /*

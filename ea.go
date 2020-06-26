@@ -265,6 +265,10 @@ func (ea *eaPCDisplacement) init(cpu *M68K, o *Size) modifier {
 	return ea
 }
 
+func (ea *eaPCDisplacement) computedAddress() int32 {
+	return ea.address
+}
+
 // -------------------------------------------------------------------
 // Indirect + index
 
@@ -322,7 +326,7 @@ func (ea *eaImmediate) computedAddress() int32 {
 }
 
 // -------------------------------------------------------------------
-// immediate
+// sr
 
 func (ea *eaStatusRegister) init(cpu *M68K, o *Size) modifier {
 	ea.sr = &cpu.sr

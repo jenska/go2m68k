@@ -8,7 +8,6 @@ func init() {
 	addOpcode("illegal", illegal, 0x4afc, 0xffff, 0x0000, "071234fc:4")
 	addOpcode("stop #sr", stop, 0x4e72, 0xffff, 0x0000, "01:4", "7:13", "234fc:8")
 	addOpcode("lea ea, ax", lea, 0x41c0, 0xf1c0, 0x027b, "01:0", "7:7", "234fc:2")
-
 }
 
 func lea(c *M68K) {
@@ -31,14 +30,17 @@ func swap(c *M68K) {
 
 func reset(c *M68K) {
 	if !c.sr.S {
-		panic(PrivilegeViolationError)
+		panic(NewError(PrivilegeViolationError, c, c.pc, nil))
 	}
 	c.Reset()
 	// c.cycles -=
 }
 
 func illegal(c *M68K) {
-	panic(IllegalInstruction)
+	// if c.ir != 0x4afc {
+	// 	debug.PrintStack()
+	// }
+	panic(NewError(IllegalInstruction, c, c.pc, nil))
 }
 
 func stop(c *M68K) {
@@ -47,6 +49,6 @@ func stop(c *M68K) {
 		c.stopped = true
 		c.sr.setbits(newSR)
 	} else {
-		panic(PrivilegeViolationError)
+		panic(NewError(PrivilegeViolationError, c, c.pc, nil))
 	}
 }
