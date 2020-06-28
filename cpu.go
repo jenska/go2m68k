@@ -149,7 +149,11 @@ func (cpu *M68K) catchError() {
 			cpu.push(Long, cpu.pc)
 			cpu.push(Word, oldSR.bits())
 
-			if xaddr := cpu.read(err.index<<2, Long); xaddr == 0 {
+			exception := err.index
+			if err.x != nil {
+				exception += *err.x
+			}
+			if xaddr := cpu.read(exception<<2, Long); xaddr == 0 {
 				if xaddr = cpu.read(UnintializedInterrupt<<2, Long); xaddr == 0 {
 					panic(fmt.Sprintf("Interrupt vector not set for uninitialised interrupt vector from 0x%08x", cpu.pc))
 					// cpu.stopped = true
@@ -206,6 +210,7 @@ var errorString = map[int32]string{
 	BusError:                "bus error",
 	IllegalInstruction:      "illegal instruction",
 	PrivilegeViolationError: "privilege violation",
+	TrapBase:                "trap #%d",
 }
 
 // NewError creates a new CPU Error object
@@ -223,7 +228,7 @@ func NewError(index int32, c *M68K, address int32, extra *int32) Error {
 func (e Error) Error() string {
 	dsc := errorString[e.index]
 	if e.x != nil && dsc != "" {
-		dsc = fmt.Sprintf(dsc, e.x)
+		dsc = fmt.Sprintf(dsc, *e.x)
 	} else if dsc == "" {
 		dsc = fmt.Sprintf("error %d", e.index)
 	}

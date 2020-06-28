@@ -20,7 +20,6 @@ func TestClr(t *testing.T) {
 	tcpu.write(0x4006, Word, 0x4201)     // clr.b d1
 	tcpu.write(0x4008, Word, 0x4e72)     // stop
 	tcpu.write(0x400a, Word, 0x2700)     // #$27000
-	tcpu.pc = 0x400a + 2
 	trun(0x4000)
 	assert.Equal(t, int32(0), tcpu.d[0])
 	assert.Equal(t, int32(0), tcpu.d[1])

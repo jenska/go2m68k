@@ -1,7 +1,7 @@
 package cpu
 
 func init() {
-	addOpcode("tst", tst, 0x4a00, 0xffc0, 0xbf8, "01:4", "7:7", "234fc:2")
+	addOpcode("tst", tst, 0x4a00, 0xff00, 0xbf8, "01:4", "7:7", "234fc:2")
 	addOpcode("tas ea", tas, 0x4ac0, 0xffc0, 0x0bf8, "01:14", "7:15", "234fc:12")
 }
 

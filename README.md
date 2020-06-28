@@ -15,7 +15,13 @@ go2m68k is a work-in-progress project; as such, expect bugs and a lot of missing
 
 ## Build
 
-Requires binutils-m68k-linux-gnu to run m68k-linux-gnu-as
+### Test cases
+To run the test case, a local GNU Assembler for m68k cpus is required.
+On Debian/Ubuntu use
+```bash
+sudo apt install binutils-m68k-linux-gnu 
+```
+to run m68k-linux-gnu-as
 
 ### Performance
 
