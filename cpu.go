@@ -31,6 +31,17 @@ import (
 //  add tracing (t0,t1)
 // Exceptions handled by emulation
 const (
+	M68K_CPU_TYPE_68000 Type = iota
+	M68K_CPU_TYPE_68010
+	M68K_CPU_TYPE_68EC020
+	M68K_CPU_TYPE_68020
+	M68K_CPU_TYPE_68EC030
+	M68K_CPU_TYPE_68030
+	M68K_CPU_TYPE_68EC040
+	M68K_CPU_TYPE_68LC040
+	M68K_CPU_TYPE_68040
+	M68K_CPU_TYPE_SCC68070
+
 	BusError                = 2
 	AdressError             = 3
 	IllegalInstruction      = 4
@@ -56,6 +67,7 @@ type (
 		index   int32
 		name    string
 		address *int32
+		c       *M68K
 		ir      *uint16
 		x       *int32
 	}
@@ -64,9 +76,6 @@ type (
 	Type int32
 	// Signal external CPU events
 	Signal int32
-
-	// floatX80 not supported yet
-	floatX80 float64
 
 	// Reader accessor for read accesses
 	Reader func(int32, *Size) int32
@@ -94,6 +103,7 @@ type (
 
 	// M68K CPU core
 	M68K struct {
+		cpuType      Type
 		instructions [0x10000]instruction
 		icount       int // overall instructions performed
 
@@ -190,8 +200,13 @@ func (cpu *M68K) Run(signals <-chan Signal) {
 func (cpu *M68K) Step() *M68K {
 	defer cpu.catchError()
 	cpu.ir = uint16(cpu.popPc(Word))
-	cpu.instructions[cpu.ir](cpu)
-	cpu.icount++
+	if instruction := cpu.instructions[cpu.ir]; instruction != nil {
+		instruction(cpu)
+		cpu.icount++
+	} else {
+		// debug.PrintStack()
+		panic(NewError(IllegalInstruction, cpu, cpu.pc, nil))
+	}
 	// TODO: trace
 	return cpu
 }
@@ -215,7 +230,7 @@ var errorString = map[int32]string{
 
 // NewError creates a new CPU Error object
 func NewError(index int32, c *M68K, address int32, extra *int32) Error {
-	res := Error{index: index, x: extra}
+	res := Error{index: index, x: extra, c: c}
 	pc := address
 	res.address = &pc
 	if c != nil {
@@ -234,7 +249,8 @@ func (e Error) Error() string {
 	}
 
 	if e.ir != nil {
-		return fmt.Sprintf("cpu %s (PC %08x, IR %04x)", dsc, *e.address, *e.ir)
+		dasm, _ := Disassemble(e.c.cpuType, *e.address, e.c.bus)
+		return fmt.Sprintf("cpu %s (PC %08x, IR %04x)\n%s", dsc, *e.address, *e.ir, dasm)
 	}
 	return fmt.Sprintf("cpu %s at %08x", dsc, *e.address)
 }

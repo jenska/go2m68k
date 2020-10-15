@@ -167,6 +167,7 @@ func NewBaseArea(ssp, pc int32, size uint32) *AddressArea {
 
 // SetISA68000 Instruction Set Architecture for M68000
 func (cpu *M68K) SetISA68000() Builder {
+	cpu.cpuType = M68K_CPU_TYPE_68000
 	cpu.eaDst = eaDst68000
 	cpu.eaSrc = eaSrc68000
 
@@ -253,10 +254,9 @@ func buildInstructionTable(c *M68K, r rune) {
 			mask := opcode.mask
 			for value := uint16(0); ; {
 				index := match | value
-
 				if validEA(index, opcode.eaMask) {
 					if c.instructions[index] != nil {
-						//	log.Printf("instruction 0x%04x (%s) already set\n", index, opcode.name)
+						// log.Printf("instruction 0x%04x (%s) already set\n", index, opcode.name)
 					} else {
 						counter++
 					}
@@ -265,16 +265,10 @@ func buildInstructionTable(c *M68K, r rune) {
 				}
 
 				value = ((value | mask) + 1) & ^mask
-
 				if value == 0 {
 					break
 				}
 			}
-		}
-	}
-	for i := range c.instructions {
-		if c.instructions[i] == nil {
-			c.instructions[i] = illegal
 		}
 	}
 

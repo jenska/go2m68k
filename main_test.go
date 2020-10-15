@@ -92,7 +92,7 @@ func assemble(t *testing.T, asmFile string) []byte {
 	return res
 }
 
-func _TestEnv(t *testing.T) {
+func TestEnv(t *testing.T) {
 	res := assemble(t, "imisc_test")
 	fmt.Println(hex.Dump(res))
 }

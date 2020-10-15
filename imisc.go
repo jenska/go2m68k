@@ -32,14 +32,11 @@ func reset(c *M68K) {
 	if !c.sr.S {
 		panic(NewError(PrivilegeViolationError, c, c.pc, nil))
 	}
-	c.Reset()
 	// c.cycles -=
+	c.Reset()
 }
 
 func illegal(c *M68K) {
-	// if c.ir != 0x4afc {
-	// 	debug.PrintStack()
-	// }
 	panic(NewError(IllegalInstruction, c, c.pc, nil))
 }
 
