@@ -1,56 +1,18 @@
-package cpu
+package m68k
 
-/*
-goos: linux
-goarch: amd64
-pkg: github.com/jenska/go2m68k
-BenchmarkDbra-4   	    2056	    526254 ns/op
-PASS
-
-Showing nodes accounting for 1050ms, 90.52% of 1160ms total
-Showing top 10 nodes out of 25
-      flat  flat%   sum%        cum   cum%
-     180ms 15.52% 15.52%      710ms 61.21%  github.com/jenska/go2m68k.(*M68K).SetISA68000.func1
-     150ms 12.93% 28.45%      530ms 45.69%  github.com/jenska/go2m68k.(*addressAreaQueue).read
-     140ms 12.07% 40.52%      280ms 24.14%  github.com/jenska/go2m68k.NewBaseArea.func1
-     110ms  9.48% 50.00%      960ms 82.76%  github.com/jenska/go2m68k.(*M68K).step
-     100ms  8.62% 58.62%      100ms  8.62%  github.com/jenska/go2m68k.(*addressAreaQueue).findArea
-      90ms  7.76% 66.38%      800ms 68.97%  github.com/jenska/go2m68k.(*M68K).popPC (inline)
-      90ms  7.76% 74.14%      140ms 12.07%  github.com/jenska/go2m68k.glob..func4
-      90ms  7.76% 81.90%       90ms  7.76%  runtime.chanrecv
-      50ms  4.31% 86.21%       50ms  4.31%  encoding/binary.bigEndian.Uint16
-      50ms  4.31% 90.52%      340ms 29.31%  github.com/jenska/go2m68k.dbra
-*/
 import (
 	"fmt"
-	"log"
+	"strings"
+
+	"github.com/jenska/m68k/internal/core"
+	_ "github.com/jenska/m68k/internal/instructions"
 )
 
-// TODO:
-//  add cpu cycles
-//  add tracing (t0,t1)
-// Exceptions handled by emulation
 const (
-	M68K_CPU_TYPE_68000 Type = iota
-	M68K_CPU_TYPE_68010
-	M68K_CPU_TYPE_68EC020
-	M68K_CPU_TYPE_68020
-	M68K_CPU_TYPE_68EC030
-	M68K_CPU_TYPE_68030
-	M68K_CPU_TYPE_68EC040
-	M68K_CPU_TYPE_68LC040
-	M68K_CPU_TYPE_68040
-	M68K_CPU_TYPE_SCC68070
+	M68000 Model = 1 << iota
+	M68010
 
-	BusError                = 2
-	AdressError             = 3
-	IllegalInstruction      = 4
-	ZeroDivideError         = 5
-	PrivilegeViolationError = 8
-	UnintializedInterrupt   = 15
-	TrapBase                = 32
-
-	HaltSignal Signal = iota
+	HaltSignal = iota
 	ResetSignal
 	Int1Signal
 	Int2Signal
@@ -62,195 +24,120 @@ const (
 )
 
 type (
-	// Error type for CPU Errors
-	Error struct {
-		index   int32
-		name    string
-		address *int32
-		c       *M68K
-		ir      *uint16
-		x       *int32
+	Model uint16 // CPU model
+	FC    uint16 // Function code
+
+	// CPU Interface
+	CPU interface {
+		Execute(signals <-chan uint16)
 	}
 
-	// Type of CPU
-	Type int32
-	// Signal external CPU events
-	Signal int32
+	// Disassembles a single instruction and returns the instruction size.
+	Disassemble func(addr uint32, b strings.Builder) uint16
 
-	// Reader accessor for read accesses
-	Reader func(int32, *Size) int32
-	// Writer accessor for write accesses
-	Writer func(int32, *Size, int32)
-	// Reset prototype
-	Reset func()
-
-	// AddressArea container for address space area
-	AddressArea struct {
-		read  Reader
-		write Writer
-		raw   []byte
-		reset Reset
+	Reader interface {
+		Read8(address uint32) uint8
+		Read16(address uint32) uint16
+		Read32(address uint32) uint32
 	}
 
-	// AddressBus for accessing address areas
-	AddressBus interface {
-		read(address int32, s *Size) int32
-		write(address int32, s *Size, value int32)
-		reset()
+	Writer interface {
+		Write8(address uint32, value uint8)
+		Write16(address uint32, value uint16)
+		Write32(address uint32, value uint32)
 	}
 
-	instruction func(*M68K)
+	MemoryArea func() *core.AddressArea
 
-	// M68K CPU core
-	M68K struct {
-		cpuType      Type
-		instructions [0x10000]instruction
-		icount       int // overall instructions performed
-
-		cycles      [0x10000]int
-		eaIdxCycles [64]int
-		iclocks     int // number of clocks remaining
-
-		bus   AddressBus
-		read  Reader
-		write Writer
-		eaSrc []ea
-		eaDst []ea
-
-		da  [16]int32 // data and address registers
-		d   []int32   // slice of data registers
-		a   []int32   // slice of address registers
-		pc  int32     // Program counter
-		ppc int32     // previous program counter
-		ir  uint16    // Instruction Register
-
-		ssp, usp int32 // Supervisoro Stackpointer#
-		sr       ssr   // Supervisor Status Register (+ CCR)
-
-		stopped bool // stopped state
-		hasFPU  bool
+	// BusController encapsulates the memory areas.
+	BusController struct {
+		as *core.AddressSpace
 	}
 )
 
-func (cpu *M68K) String() string {
-	result := fmt.Sprintf("SR %s PC %08x USP %08x SSP %08x\n", cpu.sr, cpu.pc, cpu.usp, cpu.ssp)
-	for i := range cpu.d {
-		result += fmt.Sprintf("D%d %08x ", i, uint32(cpu.d[i]))
-	}
-	result += "\n"
-	for i := range cpu.a {
-		result += fmt.Sprintf("A%d %08x ", i, uint32(cpu.a[i]))
-	}
-	result += "\n"
-
-	return result
-}
-
-func (cpu *M68K) catchError() {
-	if r := recover(); r != nil {
-		if err, ok := r.(Error); ok {
-			log.Printf("cpu.catchError: %s\n", err)
-			oldSR := cpu.sr
-			if !cpu.sr.S {
-				cpu.sr.S = true
-				cpu.usp = cpu.a[7]
-			}
-			cpu.a[7] = cpu.ssp
-			cpu.push(Long, cpu.pc)
-			cpu.push(Word, oldSR.bits())
-
-			exception := err.index
-			if err.x != nil {
-				exception += *err.x
-			}
-			if xaddr := cpu.read(exception<<2, Long); xaddr == 0 {
-				if xaddr = cpu.read(UnintializedInterrupt<<2, Long); xaddr == 0 {
-					panic(fmt.Sprintf("Interrupt vector not set for uninitialised interrupt vector from 0x%08x", cpu.pc))
-					// cpu.stopped = true
+// AddArea adds a chip memory area to the bus controllers scope
+func ChipArea(offset, size uint32, reader Reader, writer Writer, reset func()) MemoryArea {
+	return func() *core.AddressArea {
+		return core.NewArea(offset, size,
+			func(offset uint32, o core.Operand) uint32 {
+				switch o {
+				case core.Byte:
+					return uint32(reader.Read8(offset))
+				case core.Word:
+					return uint32(reader.Read16(offset))
+				case core.Long:
+					return reader.Read32(offset)
+				default:
+					panic("invalid operand size")
 				}
-			} else {
-				cpu.pc = xaddr
-			}
-		} else {
-			panic(r)
-		}
+			},
+			func(offset uint32, o core.Operand, v uint32) {
+				switch o {
+				case core.Byte:
+					writer.Write8(offset, uint8(v))
+				case core.Word:
+					writer.Write16(offset, uint16(v))
+				case core.Long:
+					writer.Write32(offset, v)
+				default:
+					panic("invalid operand size")
+				}
+			},
+			reset)
 	}
 }
 
-// Run until halted
-// TODO: prefetch in goroutine?
-func (cpu *M68K) Run(signals <-chan Signal) {
-	cpu.stopped = false
-	for !cpu.stopped {
-		select {
-		case signal := <-signals:
-			if signal == ResetSignal {
-				cpu.Reset()
-			} else if signal == HaltSignal {
-				cpu.stopped = true
-				break
-			}
-		default:
-			cpu.Step()
-		}
+func BaseRAM(ssp, pc, size uint32) MemoryArea {
+	return func() *core.AddressArea {
+		return core.NewBasePage(ssp, pc, size)
 	}
 }
 
-// Step through a single instruction
-func (cpu *M68K) Step() *M68K {
-	defer cpu.catchError()
-	cpu.ir = uint16(cpu.popPc(Word))
-	if instruction := cpu.instructions[cpu.ir]; instruction != nil {
-		instruction(cpu)
-		cpu.icount++
-	} else {
-		// debug.PrintStack()
-		panic(NewError(IllegalInstruction, cpu, cpu.pc, nil))
+func RAM(offset, size uint32) MemoryArea {
+	return func() *core.AddressArea {
+		return core.NewRAM(offset, size)
 	}
-	// TODO: trace
-	return cpu
 }
 
-// Reset sets the cpu back to initial state
-func (cpu *M68K) Reset() {
-	cpu.bus.reset()
-	cpu.sr.setbits(0x2700)
-	cpu.ssp, cpu.pc = cpu.read(0, Long), cpu.read(4, Long)
-	cpu.a[7] = cpu.ssp
-	cpu.stopped = false
-	cpu.icount = 0
+func ROM(offset uint32, rom []byte) MemoryArea {
+	return func() *core.AddressArea {
+		return core.NewROM(offset, rom)
+	}
 }
 
-var errorString = map[int32]string{
-	BusError:                "bus error",
-	IllegalInstruction:      "illegal instruction",
-	PrivilegeViolationError: "privilege violation",
-	TrapBase:                "trap #%d",
+func NewBusController(memoryMap ...MemoryArea) BusController {
+	bc := BusController{core.NewAddressSpace()}
+	for _, area := range memoryMap {
+		core.Allocate(bc.as, area())
+	}
+	return bc
 }
 
-// NewError creates a new CPU Error object
-func NewError(index int32, c *M68K, address int32, extra *int32) Error {
-	res := Error{index: index, x: extra, c: c}
-	pc := address
-	res.address = &pc
-	if c != nil {
-		ir := c.ir
-		res.ir = &ir
+func New(m Model, bc BusController) CPU {
+	switch m {
+	case M68000:
+		return core.Build(
+			func(address uint32, o core.Operand) uint32 {
+				address &= core.Address24Mask
+				if address&1 == 0 {
+					return bc.as.Read(address, o)
+				} else if o == core.Byte {
+					return bc.as.Read(address, core.Byte)
+				}
+				panic(core.AddressError(address))
+			},
+			func(address uint32, o core.Operand, v uint32) {
+				address &= core.Address24Mask
+				if address&1 == 0 {
+					bc.as.Write(address, o, v)
+				} else if o == core.Byte {
+					bc.as.Write(address, core.Byte, v)
+				} else {
+					panic(core.AddressError(address))
+				}
+			},
+			bc.as.Reset)(core.M68000InstructionSet)
+	default:
+		panic(fmt.Errorf("unsupported CPU model"))
 	}
-	return res
-}
-
-func (e Error) Error() string {
-	dsc := errorString[e.index]
-	if e.x != nil && dsc != "" {
-		dsc = fmt.Sprintf(dsc, *e.x)
-	} else if dsc == "" {
-		dsc = fmt.Sprintf("error %d", e.index)
-	}
-
-	if e.ir != nil {
-		dasm, _ := Disassemble(e.c.cpuType, *e.address, e.c.bus)
-		return fmt.Sprintf("cpu %s (PC %08x, IR %04x)\n%s", dsc, *e.address, *e.ir, dasm)
-	}
-	return fmt.Sprintf("cpu %s at %08x", dsc, *e.address)
 }
