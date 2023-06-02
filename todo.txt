@@ -1,0 +1,12 @@
+public API internal core project structure
+
+error handling
+    bus error
+    address error
+supervisor mode
+cpu cycles
+68010 support
+
+
+finalized:
+    Operand design pattern (types.go)
