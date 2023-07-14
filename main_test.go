@@ -1,53 +1,57 @@
 package m68k
 
 import (
-	"encoding/binary"
+	"os"
+	"sync"
 	"testing"
 )
 
-type TestEnv struct {
-	c   CPU
-	ram []byte
+type (
+	DummyReader int
+	DummyWriter int
+)
+
+func (DummyReader) Read8(address uint32) uint8 {
+	return 1
 }
 
-func (e *TestEnv) Read8(offset uint32) uint8 {
-	return e.ram[offset]
+func (DummyReader) Read16(address uint32) uint16 {
+	return 2
 }
 
-func (e *TestEnv) Read16(offset uint32) uint16 {
-	return binary.BigEndian.Uint16(e.ram[offset:])
+func (DummyReader) Read32(address uint32) uint32 {
+	return 3
 }
 
-func (e *TestEnv) Read32(offset uint32) uint32 {
-	return binary.BigEndian.Uint32(e.ram[offset:])
+func (DummyWriter) Write8(address uint32, value uint8) {
 }
 
-func (e *TestEnv) Write8(offset uint32, v uint8) {
-	e.ram[offset] = v
+func (DummyWriter) Write16(address uint32, value uint16) {
 }
 
-func (e *TestEnv) Write16(offset uint32, v uint16) {
-	binary.BigEndian.PutUint16(e.ram[offset:], v)
+func (DummyWriter) Write32(address uint32, value uint32) {
 }
 
-func (e *TestEnv) Write32(offset uint32, v uint32) {
-	binary.BigEndian.PutUint32(e.ram[offset:], v)
-}
+func TestBootEnvironment(t *testing.T) {
+	var wg sync.WaitGroup
+	var dummyReader DummyReader
+	var dummyWriter DummyWriter
+	if rom, err := os.ReadFile("./emutos-192k-1.2.1/etos192de.img"); err == nil {
+		busController := NewBusController(
+			BaseRAM(0x1000, 0xfc0000, 1024*1024),
+			ROM(0xfc0000, rom),
+			ChipArea(0xff8000, 4096, dummyReader, dummyWriter, nil),
+		)
+		cpu := New(M68000, busController)
 
-func buildTestEnv(m Model) *TestEnv {
-	env := &TestEnv{}
-	env.ram = make([]byte, 0x10000)
-	offset := uint32(len(env.ram))
-	bus := NewBusController(BaseRAM(0x10000, 0x10000, 0x10000), ChipArea(0x10000, offset, env, env, nil))
-	env.c = New(m, bus)
-	return env
-}
-
-func TestExecute(t *testing.T) {
-	env := buildTestEnv(M68000)
-	env.Write16(0, 0x7000)
-	env.Write16(2, 0x7201)
-	signals := make(chan uint16)
-	env.c.Execute(signals)
-	signals <- HaltSignal
+		signals := make(chan uint16)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cpu.Execute(signals)
+		}()
+		wg.Wait()
+	} else {
+		panic(err)
+	}
 }

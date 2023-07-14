@@ -69,19 +69,21 @@ func NewArea(offset, size uint32, reader Reader, writer Writer, reset func()) *A
 
 // Read returns a value at address or panics otherwise with a BusError
 func (as *AddressSpace) Read(address uint32, o Operand) uint32 {
-	area := as.table[address>>PageShift]
-	if read := area.read; read != nil {
-		return read(address-area.offset, o)
+	if area := as.table[address>>PageShift]; area != nil {
+		if read := area.read; read != nil {
+			return read(address-area.offset, o)
+		}
 	}
 	panic(BusError(address))
 }
 
 // Write writes a value to address or panics a BusError
 func (as *AddressSpace) Write(address uint32, o Operand, value uint32) {
-	area := as.table[address>>PageShift]
-	if write := area.write; write != nil {
-		write(address-area.offset, o, value)
-		return
+	if area := as.table[address>>PageShift]; area != nil {
+		if write := area.write; write != nil {
+			write(address-area.offset, o, value)
+			return
+		}
 	}
 	panic(BusError(address))
 }
@@ -117,7 +119,7 @@ func Allocate(as *AddressSpace, aa *AddressArea) *AddressSpace {
 		panic(fmt.Errorf("size must not be 0"))
 	}
 	if aa.size&(PageSize-1) != 0 {
-		panic(fmt.Errorf("size $%x must be multiple of %d", aa.size, PageShift))
+		panic(fmt.Errorf("size $%x must be multiple of %d", aa.size, PageSize))
 	}
 
 	for i := aa.offset >> PageShift; i < (aa.offset+aa.size)>>PageShift; i++ {

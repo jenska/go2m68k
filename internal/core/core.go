@@ -66,9 +66,9 @@ func (be BusError) Error() string {
 
 func (c *Core) String() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "PC %08x USP %08x SR %s\n", c.PC, c.USP, c.SR)
+	fmt.Fprintf(&b, "PC %08x IRC %04x SR %s\n", c.PC, c.IRC, c.SR)
 	fmt.Fprintf(&b, "A0 %08x %08x %08x %08x\n", c.A[0], c.A[1], c.A[2], c.A[3])
-	fmt.Fprintf(&b, "A4 %08x %08x %08x %08x\n", c.A[4], c.A[5], c.A[6], c.SP)
+	fmt.Fprintf(&b, "A4 %08x %08x %08x %08x\n", c.A[4], c.A[5], c.A[6], *c.SP)
 	fmt.Fprintf(&b, "D0 %08x %08x %08x %08x\n", c.D[0], c.D[1], c.D[2], c.D[3])
 	fmt.Fprintf(&b, "D4 %08x %08x %08x %08x\n", c.D[4], c.D[5], c.D[6], c.D[7])
 	return b.String()
@@ -117,7 +117,7 @@ func (c *Core) Execute(signals <-chan uint16) {
 		default:
 			c.PC0 = c.PC
 			c.IRC = uint16(c.PopPc(Word))
-			log.Printf("PC %08x INS %04x\n", c.PC0, c.IRC)
+			log.Println(c)
 			if instruction := c.instructions[c.IRC]; instruction != nil {
 				instruction(c)
 			} else {
@@ -128,6 +128,8 @@ func (c *Core) Execute(signals <-chan uint16) {
 }
 
 func (c *Core) ProcessException(x uint16) {
+	log.Printf("Exception %d raised.\n", x)
+	log.Println(c)
 	oldSR := c.SR
 	if !c.SR.S {
 		c.SR.S = true
@@ -143,7 +145,6 @@ func (c *Core) ProcessException(x uint16) {
 		c.PC = xaddr
 	} else {
 		c.halted = true
-		log.Printf("Interrupt vector not set for uninitialised interrupt vector from 0x%08x", c.PC)
-		log.Print(c)
+		log.Printf("Interrupt vector not set for uninitialised interrupt vector from 0x%08x\n", c.PC)
 	}
 }

@@ -20,7 +20,6 @@ type (
 		MSB(v uint32) bool // most significant bit
 
 		Size() uint32
-		Align() uint32
 
 		HexString(value uint32) string
 	}
@@ -35,6 +34,19 @@ var (
 	Word wordOperand
 	Long longOperand
 )
+
+func OperandFromValue(index uint16) Operand {
+	switch index & 0x3 {
+	case 0:
+		return Byte
+	case 1:
+		return Word
+	case 2:
+		return Long
+	default:
+		return nil
+	}
+}
 
 func (byteOperand) Write(v uint32, dst []byte) {
 	dst[0] = byte(v)
@@ -62,10 +74,6 @@ func (byteOperand) MSB(v uint32) bool {
 
 func (byteOperand) Size() uint32 {
 	return ByteSize
-}
-
-func (byteOperand) Align() uint32 {
-	return WordSize
 }
 
 func (byteOperand) HexString(value uint32) string {
@@ -105,10 +113,6 @@ func (wordOperand) Size() uint32 {
 	return WordSize
 }
 
-func (wordOperand) Align() uint32 {
-	return WordSize
-}
-
 func (wordOperand) HexString(value uint32) string {
 	return fmt.Sprintf("%04x", value)
 }
@@ -145,10 +149,6 @@ func (longOperand) MSB(v uint32) bool {
 }
 
 func (longOperand) Size() uint32 {
-	return LongSize
-}
-
-func (longOperand) Align() uint32 {
 	return LongSize
 }
 

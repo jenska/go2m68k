@@ -17,32 +17,6 @@ type (
 
 var opcodeTable = []*opcode{}
 
-var M68000InstructionSet buildInstructionTable = func(c *Core) {
-	var counter int
-	for _, opcode := range opcodeTable {
-		match := opcode.match
-		mask := opcode.mask
-		for value := uint16(0); ; {
-			index := match | value
-			if validEA(index, opcode.eaMask) {
-				if c.instructions[index] != nil {
-					panic(fmt.Errorf("instruction 0x%04x (%s) already set", index, opcode.name))
-				} else {
-					counter++
-				}
-				c.instructions[index] = opcode.instruction
-			}
-
-			value = ((value | mask) + 1) & ^mask
-			if value == 0 {
-				break
-			}
-		}
-	}
-
-	log.Printf("%d cpu instructions available", counter)
-}
-
 func Build(r Reader, w Writer, reset func()) func(buildInstructionTable) *Core {
 	return func(it buildInstructionTable) *Core {
 		c := &Core{}
@@ -114,4 +88,30 @@ func validEA(opcode, mask uint16) bool {
 		return (mask & MaskImmediate) != 0
 	}
 	return false
+}
+
+var M68000InstructionSet = func(c *Core) {
+	var counter int
+	for _, opcode := range opcodeTable {
+		match := opcode.match
+		mask := opcode.mask
+		for value := uint16(0); ; {
+			index := match | value
+			if validEA(index, opcode.eaMask) {
+				if c.instructions[index] != nil {
+					panic(fmt.Errorf("instruction 0x%04x (%s) already set", index, opcode.name))
+				} else {
+					counter++
+				}
+				c.instructions[index] = opcode.instruction
+			}
+
+			value = ((value | mask) + 1) & ^mask
+			if value == 0 {
+				break
+			}
+		}
+	}
+
+	log.Printf("%d cpu instructions available", counter)
 }

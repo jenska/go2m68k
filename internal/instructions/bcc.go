@@ -12,18 +12,18 @@ func bcc(c *Core) {
 		if dis == 0 {
 			dis = Word.SignedExtend(c.PopPc(Word))
 		}
-		c.Push(Long, c.PC)
-		c.PC = uint32(int32(c.PC0) + dis)
+		c.Push(Long, c.PC) // ?
+		c.PC = uint32(int32(c.PC0) + dis + WordSize)
 	} else if c.SR.TestCC(cc) {
 		if dis == 0 {
 			dis = Word.SignedExtend(c.PopPc(Word))
 		}
-		c.PC = uint32(int32(c.PC0) + dis)
+		c.PC = uint32(int32(c.PC0) + dis + WordSize)
 	} else if dis == 0 {
 		c.PC += Word.Size()
 	}
 }
 
 func init() {
-	Register("bcc", bcc, 0x6000, 0xf000, 0x0000)
+	Register("bcc(.s) dis", bcc, 0x6000, 0xf000, 0x0000)
 }

@@ -9,9 +9,6 @@ import (
 
 func TestNew(t *testing.T) {
 	bc := NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, nil))
-	assert.Panics(t, func() {
-		New(0, bc)
-	})
 	cpu := New(M68000, bc)
 	assert.NotNil(t, cpu)
 }
@@ -19,7 +16,7 @@ func TestNew(t *testing.T) {
 func TestReset(t *testing.T) {
 	bc := NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, nil))
 	assert.Panics(t, func() {
-		New(0, bc)
+		New(M68000, bc)
 	})
 	cpu := New(M68000, bc)
 	assert.NotNil(t, cpu)

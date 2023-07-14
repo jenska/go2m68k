@@ -5,7 +5,7 @@ import (
 )
 
 func jmp(c *Core) {
-	c.PC = c.FetchEA((c.IRC&7)>>3, c.IRC&7, Long).Address()
+	c.PC = c.FetchEA((c.IRC>>3)&7, c.IRC&7, Long).Address()
 }
 
 func init() {

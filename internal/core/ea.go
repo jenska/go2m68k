@@ -67,7 +67,7 @@ func (c *Core) FetchEA(mode, xn uint16, o Operand) EA {
 	case ModeAW:
 		switch mode + xn {
 		case ModeAW:
-			return eaAddress{address: c.PopPc(Word), c: c, o: o}
+			return eaAddress{address: uint32(Word.SignedExtend(c.PopPc(Word))), c: c, o: o}
 		case ModeAL:
 			return eaAddress{address: c.PopPc(Long), c: c, o: o}
 		case ModeDIPC:
@@ -141,8 +141,13 @@ func (ea eaImmediate) String() string {
 }
 
 func (c *Core) PopPc(o Operand) uint32 {
+	if o == Byte {
+		res := c.readRaw(c.PC, Word) & 0xff
+		c.PC += WordSize
+		return res
+	}
 	res := c.readRaw(c.PC, o)
-	c.PC += o.Align()
+	c.PC += o.Size()
 	return res
 }
 

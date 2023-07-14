@@ -9,9 +9,6 @@ import (
 )
 
 const (
-	M68000 Model = 1 << iota
-	M68010
-
 	HaltSignal = iota
 	ResetSignal
 	Int1Signal
@@ -47,7 +44,12 @@ type (
 		Write32(address uint32, value uint32)
 	}
 
+	// MemoryArea represents a junk of addressable memory
 	MemoryArea func() *core.AddressArea
+	// CPUType, e.g. M68000, M68010,...
+	CPUType func(bc BusController) *core.Core
+	// CPU options, like e.g. M68881 FPU, ...
+	Option func(*core.Core)
 
 	// BusController encapsulates the memory areas.
 	BusController struct {
@@ -57,33 +59,38 @@ type (
 
 // AddArea adds a chip memory area to the bus controllers scope
 func ChipArea(offset, size uint32, reader Reader, writer Writer, reset func()) MemoryArea {
+	var readerWrapper core.Reader
+	var writerWrapper core.Writer
+	if reader != nil {
+		readerWrapper = func(offset uint32, o core.Operand) uint32 {
+			switch o {
+			case core.Byte:
+				return uint32(reader.Read8(offset))
+			case core.Word:
+				return uint32(reader.Read16(offset))
+			case core.Long:
+				return reader.Read32(offset)
+			default:
+				panic("invalid operand size")
+			}
+		}
+	}
+	if writer != nil {
+		writerWrapper = func(offset uint32, o core.Operand, v uint32) {
+			switch o {
+			case core.Byte:
+				writer.Write8(offset, uint8(v))
+			case core.Word:
+				writer.Write16(offset, uint16(v))
+			case core.Long:
+				writer.Write32(offset, v)
+			default:
+				panic("invalid operand size")
+			}
+		}
+	}
 	return func() *core.AddressArea {
-		return core.NewArea(offset, size,
-			func(offset uint32, o core.Operand) uint32 {
-				switch o {
-				case core.Byte:
-					return uint32(reader.Read8(offset))
-				case core.Word:
-					return uint32(reader.Read16(offset))
-				case core.Long:
-					return reader.Read32(offset)
-				default:
-					panic("invalid operand size")
-				}
-			},
-			func(offset uint32, o core.Operand, v uint32) {
-				switch o {
-				case core.Byte:
-					writer.Write8(offset, uint8(v))
-				case core.Word:
-					writer.Write16(offset, uint16(v))
-				case core.Long:
-					writer.Write32(offset, v)
-				default:
-					panic("invalid operand size")
-				}
-			},
-			reset)
+		return core.NewArea(offset, size, readerWrapper, writerWrapper, reset)
 	}
 }
 
@@ -100,6 +107,7 @@ func RAM(offset, size uint32) MemoryArea {
 }
 
 func ROM(offset uint32, rom []byte) MemoryArea {
+	isMandatory(rom, "byte array for ROM")
 	return func() *core.AddressArea {
 		return core.NewROM(offset, rom)
 	}
@@ -113,31 +121,19 @@ func NewBusController(memoryMap ...MemoryArea) BusController {
 	return bc
 }
 
-func New(m Model, bc BusController) CPU {
-	switch m {
-	case M68000:
-		return core.Build(
-			func(address uint32, o core.Operand) uint32 {
-				address &= core.Address24Mask
-				if address&1 == 0 {
-					return bc.as.Read(address, o)
-				} else if o == core.Byte {
-					return bc.as.Read(address, core.Byte)
-				}
-				panic(core.AddressError(address))
-			},
-			func(address uint32, o core.Operand, v uint32) {
-				address &= core.Address24Mask
-				if address&1 == 0 {
-					bc.as.Write(address, o, v)
-				} else if o == core.Byte {
-					bc.as.Write(address, core.Byte, v)
-				} else {
-					panic(core.AddressError(address))
-				}
-			},
-			bc.as.Reset)(core.M68000InstructionSet)
-	default:
-		panic(fmt.Errorf("unsupported CPU model"))
+func New(cpuType CPUType, bc BusController, options ...Option) CPU {
+	isMandatory(cpuType, "CPUType")
+	isMandatory(bc, "BusController")
+
+	core := cpuType(bc)
+	for _, option := range options {
+		option(core)
+	}
+	return core
+}
+
+func isMandatory(p interface{}, msg string) {
+	if p == nil {
+		panic(fmt.Errorf("mandatory paramter '%s' must not be nil", msg))
 	}
 }
