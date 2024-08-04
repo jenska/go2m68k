@@ -8,16 +8,13 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	bc := NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, nil))
+	bc := NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, make([]byte, 3*64*1024)))
 	cpu := New(M68000, bc)
 	assert.NotNil(t, cpu)
 }
 
 func TestReset(t *testing.T) {
-	bc := NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, nil))
-	assert.Panics(t, func() {
-		New(M68000, bc)
-	})
+	bc := NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, make([]byte, 3*64*1024)))
 	cpu := New(M68000, bc)
 	assert.NotNil(t, cpu)
 	signals := make(chan uint16)
@@ -26,5 +23,5 @@ func TestReset(t *testing.T) {
 }
 
 func TestNewBusController(t *testing.T) {
-	NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, nil))
+	NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, make([]byte, 3*64*1024)))
 }

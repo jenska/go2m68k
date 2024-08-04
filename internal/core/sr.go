@@ -116,6 +116,6 @@ var conditionTable = []func(sr *StatusRegister) bool{
 	func(sr *StatusRegister) bool { return sr.Z || (sr.N && !sr.V) || (!sr.N && sr.V) },
 }
 
-func (sr *StatusRegister) TestCC(code uint16) bool {
+func (sr *StatusRegister) TestCC(code uint8) bool {
 	return conditionTable[code&0x0f](sr)
 }

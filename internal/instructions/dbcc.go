@@ -5,17 +5,17 @@ import (
 )
 
 func dbcc(c *Core) {
-	if c.SR.TestCC(c.IRC >> 8) {
-		c.PC += Word.Size() // skip displacement value
-	} else {
+	if !c.SR.TestCC(uint8(c.IRC >> 8)) {
 		regPtr := &c.D[c.IRC&0x07]
 		counter := *regPtr - 1
 		dis := Word.SignedExtend(c.PopPc(Word))
-		Word.WriteToLong(counter, *&regPtr)
+		Word.WriteToLong(counter, regPtr)
 
 		if counter != 0xffff {
 			c.PC = uint32(int32(c.PC0) + dis)
 		}
+	} else {
+		c.PC += Word.Size() // skip displacement value
 	}
 }
 

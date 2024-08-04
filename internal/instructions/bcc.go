@@ -5,7 +5,7 @@ import (
 )
 
 func bcc(c *Core) {
-	cc := (c.IRC >> 8) & 0xf         // condition code
+	cc := uint8(c.IRC>>8) & 0xf      // condition code
 	dis := int32(int8(c.IRC & 0xff)) // signed displacement
 
 	if cc == 1 { // bsr
