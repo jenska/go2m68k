@@ -1,8 +1,0 @@
-**/logs
-*.log
-*.prof
-*.test
-*.o
-*.out
-*.bin
-.DS_Store
