@@ -4,6 +4,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 )
 
 type (
@@ -44,13 +45,30 @@ func TestBootEnvironment(t *testing.T) {
 		)
 		cpu := New(M68000, busController)
 
-		signals := make(chan uint16)
-		wg.Add(1)
+                signals := make(chan uint16, 2)
+
+                // Preload reset and halt signals so the CPU consumes them first,
+                // preventing it from spinning indefinitely in Execute before
+                // any signals are available.
+                signals <- ResetSignal
+                signals <- HaltSignal
+                wg.Add(1)
+                go func() {
+                        defer wg.Done()
+                        cpu.Execute(signals)
+                }()
+
+		done := make(chan struct{})
 		go func() {
-			defer wg.Done()
-			cpu.Execute(signals)
+			defer close(done)
+			wg.Wait()
 		}()
-		wg.Wait()
+
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("CPU did not halt in time")
+		}
 	} else {
 		panic(err)
 	}
