@@ -1,9 +1,14 @@
 package cpu
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestStepExecutesNOPFromMemory(t *testing.T) {
 	c := New(1024)
+	if err := c.RegisterInstruction(0x4e71, func(_ *Registers, _ *Memory) error { return nil }); err != nil {
+		t.Fatalf("failed to register NOP: %v", err)
+	}
 	if err := c.LoadProgram(0x100, []byte{0x4e, 0x71}); err != nil {
 		t.Fatalf("failed to load program: %v", err)
 	}
