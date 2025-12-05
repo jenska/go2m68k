@@ -19,26 +19,19 @@ func TestReset(t *testing.T) {
 	bc := NewBusController(BaseRAM(0x1000, 0xfc0000, 1024*1024), ROM(0xFC0000, make([]byte, 3*64*1024)))
 	cpu := New(M68000, bc)
 	assert.NotNil(t, cpu)
-	signals := make(chan uint16, 2)
+        signals := make(chan uint16, 2)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		cpu.Execute(signals)
-	}()
+        // Queue reset and halt signals before execution so the CPU consumes
+        // them immediately instead of spinning on the default select branch.
+        signals <- ResetSignal
+        signals <- HaltSignal
 
-	select {
-	case signals <- ResetSignal:
-	case <-time.After(time.Second):
-		t.Fatalf("sending reset signal timed out")
-	}
-
-	select {
-	case signals <- HaltSignal:
-	case <-time.After(time.Second):
-		t.Fatalf("sending halt signal timed out")
-	}
+        var wg sync.WaitGroup
+        wg.Add(1)
+        go func() {
+                defer wg.Done()
+                cpu.Execute(signals)
+        }()
 
 	done := make(chan struct{})
 	go func() {

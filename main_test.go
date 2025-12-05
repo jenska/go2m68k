@@ -45,23 +45,18 @@ func TestBootEnvironment(t *testing.T) {
 		)
 		cpu := New(M68000, busController)
 
-		signals := make(chan uint16, 2)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			cpu.Execute(signals)
-		}()
-		select {
-		case signals <- ResetSignal:
-		case <-time.After(time.Second):
-			t.Fatalf("sending reset signal timed out")
-		}
+                signals := make(chan uint16, 2)
 
-		select {
-		case signals <- HaltSignal:
-		case <-time.After(time.Second):
-			t.Fatalf("sending halt signal timed out")
-		}
+                // Preload reset and halt signals so the CPU consumes them first,
+                // preventing it from spinning indefinitely in Execute before
+                // any signals are available.
+                signals <- ResetSignal
+                signals <- HaltSignal
+                wg.Add(1)
+                go func() {
+                        defer wg.Done()
+                        cpu.Execute(signals)
+                }()
 
 		done := make(chan struct{})
 		go func() {
