@@ -35,7 +35,6 @@ func New(memorySize int) *CPU {
 		memory:       Memory{data: make([]byte, memorySize)},
 		instructions: make(map[uint16]Instruction),
 	}
-	c.registerDefaults()
 	return c
 }
 
@@ -96,17 +95,6 @@ func (c *CPU) fetchOpcode() (uint16, error) {
 	opcode := binary.BigEndian.Uint16(c.memory.data[c.regs.PC:])
 	c.regs.PC += 2
 	return opcode, nil
-}
-
-func (c *CPU) registerDefaults() {
-	// NOP (0x4E71) simply advances the program counter and does nothing else.
-	c.instructions[0x4e71] = func(_ *Registers, _ *Memory) error { return nil }
-
-	// STOP (0x4E72) clears the trace flags in SR as a minimal behavior example.
-	c.instructions[0x4e72] = func(regs *Registers, _ *Memory) error {
-		regs.SR &^= 0x0003 // clear T0/T1
-		return nil
-	}
 }
 
 // ReadWord returns a 16-bit value from memory at the given address.

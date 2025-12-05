@@ -14,9 +14,10 @@ Fresh start for a Motorola 68000 emulator in Go, inspired by [Musashi](https://g
    ```bash
    go test ./...
    ```
-3. Load program bytes and step through instructions:
+3. Load program bytes, register the built-in instructions, and step through them:
    ```go
    cpu := cpu.New(1024)
+   _ = instructions.RegisterDefaults(cpu)
    _ = cpu.LoadProgram(0x100, []byte{0x4e, 0x71}) // NOP
    cpu.Reset(0x100)
    _ = cpu.Step()
@@ -24,6 +25,7 @@ Fresh start for a Motorola 68000 emulator in Go, inspired by [Musashi](https://g
 
 ## Architecture
 - `internal/cpu`: CPU state, registers, memory, and instruction dispatch.
+- `internal/instructions`: Built-in instruction implementations grouped by function (control, arithmetic, move).
 - Register custom instructions with `RegisterInstruction` and run them directly via `ExecuteInstruction`.
 - `Memory.ReadWord` and `Memory.WriteWord` simplify instruction implementations.
 
