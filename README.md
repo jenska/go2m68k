@@ -2,17 +2,20 @@
 
 Fresh start for a Motorola 68000 emulator in Go, inspired by [Musashi](https://github.com/kstenerud/Musashi). The goal is a clean API that can execute individual instructions and integrate with tests generated through the `m68kasm` assembler API.
 
-## Goals
+## Project goals
 - Minimal, extensible CPU core with clear data structures
 - Execute single instructions through a public API
 - Ready for tests driven by `m68kasm`
 - MIT licensed and open to contributions
 
+## Requirements
+- Go 1.22 or newer
+
 ## Quickstart
-1. Install Go 1.22.
-2. Run the test suite:
+1. Install the Go toolchain.
+2. Run the test suite with the Makefile helper:
    ```bash
-   go test ./...
+   make test
    ```
 3. Load program bytes, register the built-in instructions, and step through them:
    ```go
@@ -22,6 +25,15 @@ Fresh start for a Motorola 68000 emulator in Go, inspired by [Musashi](https://g
    cpu.Reset(0x100)
    _ = cpu.Step()
    ```
+
+## Makefile tasks
+The repository includes a small Makefile to streamline local development:
+
+- `make fmt` — format the codebase with `gofmt`.
+- `make vet` — run `go vet` for static analysis.
+- `make test` — execute the full test suite.
+- `make tidy` — ensure module dependencies are tidy.
+- `make all` — run formatting, vetting, and tests in sequence.
 
 ## Architecture
 - `internal/cpu`: CPU state, registers, memory, and instruction dispatch.
