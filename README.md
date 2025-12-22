@@ -1,5 +1,13 @@
 # go2m68k
 
+> **⚠️ PROJECT DISCONTINUED**
+>
+> This project is no longer maintained.
+>
+> **Please use the new emulator: [m68kemu](https://github.com/jenska/m68kemu)**
+>
+> `m68kemu` is the designated successor to this project. It provides a newer, improved implementation for Motorola 68000 emulation. We highly recommend using `m68kemu` for all future needs.
+
 Fresh start for a Motorola 68000 emulator in Go, inspired by [Musashi](https://github.com/kstenerud/Musashi). The goal is a clean API that can execute individual instructions and integrate with tests generated through the `m68kasm` assembler API.
 
 ## Project goals
